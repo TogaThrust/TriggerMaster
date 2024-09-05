@@ -1,5 +1,4 @@
-version = "v0.1"
-UI_grid = {
+ui_grid = {
     "input_frame": {
         "config": {"row": 0, "sticky": "ew", "padx": 5, "pady": (5,0)},
         "entry_box": {"row": 0, "column": 0, "sticky": "ew", "padx": 5, "pady": (5,0)},
@@ -46,19 +45,3 @@ UI_grid = {
         "log_label": {"text": "Press Start", "row": 0, "column": 0, "sticky": "w", "padx": (5, 5)}
     }
 }
-
-error_messages = {"Invalid File Path": ["Invalid File Path", "File does not exist!"],
-
-                  "UnicodeDecodeError": ["Read Error", "Program is having trouble reading your file." +
-                                         " Ensure CSV is saved as UTF-8 (*CSV) file."],
-
-                  "AttributeError": ["Object Error", "Unable to perform critical operations on file."],
-
-                  "LimitWarning": ["Limit Warning", "Data exceeds output limit. Run anyway?",
-                                   "Data exceeds output limit." +
-                                   " Recommended to reduce number of dimensions or rows of data."],
-
-                  "RuntimeError": ["Runtime Error", "Program encountered an error in writing data into CSV." +
-                                   " Actually this is an unfixable error." +
-                                   " Try having no adjacent NA values in your input file."],
-                  }
