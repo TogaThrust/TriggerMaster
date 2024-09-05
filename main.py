@@ -1,137 +1,45 @@
+# system
 import os
 import sys
 from datetime import datetime
 
 # standard libraries
 import pandas as pd
+import numpy as np
 import itertools
 
 # tkinter
 import customtkinter as ctk
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("theme.json") # todo create custom theme
-from tkinter import ttk
+from tkcalendar import DateEntry
+from tkinter import ttk # treeview not implemented in CTk
 from tkinter import filedialog as fd
 from tkinter import messagebox
 
+# Other files
+import global_var
 
-# noinspection PyTypeChecker
 class GUI:
     def __init__(self):
         self.chunk_size = 2
         self.df_validated = None
         self.log = ""
-        self.output_limit = 100000000
+        self.output_limit = 100_000_000
+        self.UI_grid = global_var.UI_grid
+        self.error_messages = global_var.error_messages
         # UI main
         self.root = ctk.CTk()
         self.root.title("Trigger Duplicator")
-        self.root.resizable(False, False)
-        # characteristics of widgets
-        self.UI_grid = {"entry_box":                {"row": 0,
-                                                     "column": 0,
-                                                     "sticky": ctk.NW,
-                                                     "width": 300,
-                                                     "padx": 10,
-                                                     "pady": 0},
-
-                        "browse_button":            {"text": "Browse",
-                                                     "width": 10,
-                                                     "row": 0,
-                                                     "column": 1,
-                                                     "sticky": ctk.NW,
-                                                     "padx": 10,
-                                                     "pady": 0},
-
-                        "check_headers":            {"text": "My file has headers",
-                                                     "row": 1,
-                                                     "column": 0,
-                                                     "padx": 10,
-                                                     "pady": 5,
-                                                     "sticky": ctk.W},
-
-                        "check_code_and_name":      {"text": "Data includes both Code and Name",
-                                                     "row": 2,
-                                                     "column": 0,
-                                                     "padx": 10,
-                                                     "pady": 5,
-                                                     "sticky": ctk.W},
-
-                        "input_frame":              {"row": 0 ,
-                                                     "sticky": ctk.N,
-                                                     "width": 400,
-                                                     "padx": 0,
-                                                     "pady": 0},
-
-                        "df_frame":                 {"row": 1,
-                                                     "sticky": ctk.N,
-                                                     "width": 400,
-                                                     "height": 300,
-                                                     "padx": 0,
-                                                     "pady": 0},
-
-                        "output_frame":             {"row": 3,
-                                                     "sticky": ctk.W,
-                                                     "width": 400,
-                                                     "padx": 0,
-                                                     "pady": 0},
-
-                        "tree":                     {"row": 0 ,
-                                                     "column": 0,
-                                                     "width": 50,
-                                                     "height": 300,
-                                                     "sticky": ctk.NSEW},
-
-                        "vertical_stroll_bar":      {"row": 0 ,
-                                                     "column": 1,
-                                                     "sticky": ctk.NS},
-
-                        "horizontal_stroll_bar":    {"row": 1 ,
-                                                     "column": 0,
-                                                     "sticky": ctk.EW},
-
-                        "log_label":                {"text":"Press Start",
-                                                     "row": 2 ,
-                                                     "column": 0,
-                                                     "padx": 10,
-                                                     "height": 2,
-                                                     "sticky": ctk.NW},
-
-                        "run_button":               {"text": "Start",
-                                                     "width": 10,
-                                                     "row": 1,
-                                                     "column": 0,
-                                                     "sticky": ctk.W,
-                                                     "padx": 10,
-                                                     "pady": 10},
-
-                        "view_log_button":      {"text": "View Log",
-                                                     "width": 10,
-                                                     "row": 1,
-                                                     "column": 1,
-                                                     "sticky": ctk.W,
-                                                     "padx": 10,
-                                                     "pady": 10},
-
-                        "cancel_button":            {"text": "Exit",
-                                                     "width": 10,
-                                                     "row": 1,
-                                                     "column": 2,
-                                                     "sticky": ctk.E,
-                                                     "padx": 10,
-                                                     "pady": 10}
-                        }
-
-        self.error_messages = {
-            "Invalid File Path":    ["Invalid File Path","File does not exist!"],
-            "UnicodeDecodeError":   ["Read Error", "Program is having trouble reading your file. Ensure CSV is saved as UTF-8 (*CSV) file."],
-            "AttributeError":       ["Object Error","Unable to perform critical operations on file."],
-            "LimitError":           ["Limit Error", "Data exceeds output limit. Please reduce number of dimensions or rows of data."]
-        }
-
+        self.root.geometry("400x500") # fixme explore using pack to limit expansion
         # Widgets on initialisation
-        self.input_frame = ttk.Frame(self.root, width=self.UI_grid["input_frame"]["width"])
+        self.input_frame = ctk.CTkFrame(self.root, width=self.UI_grid["input_frame"]["width"])
         self.input_frame.grid(row=self.UI_grid["input_frame"]["row"],
                               sticky=self.UI_grid["input_frame"]["sticky"])
+
+        self.date_frame = ctk.CTkFrame(self.root, width=self.UI_grid["date_frame"]["width"])
+        self.date_frame.grid(row=self.UI_grid["date_frame"]["row"],
+                              sticky=self.UI_grid["date_frame"]["sticky"])
 
         self.entry_box = ctk.CTkEntry(self.input_frame, width=self.UI_grid["entry_box"]["width"])
         self.entry_box.grid(row=self.UI_grid["entry_box"]["row"],
@@ -140,6 +48,21 @@ class GUI:
                             padx=self.UI_grid["entry_box"]["padx"],
                             pady=self.UI_grid["entry_box"]["pady"])
         self.entry_box.insert(0, "Choose a CSV file...")
+
+        self.date_label = ctk.CTkLabel(self.date_frame,
+                                  height=self.UI_grid["date_label"]["height"],
+                                  text=self.UI_grid["date_label"]["text"])
+        self.date_label.grid(row=self.UI_grid["date_label"]["row"],
+                             padx=self.UI_grid["date_label"]["padx"],
+                             pady=self.UI_grid["date_label"]["pady"],
+                             sticky=self.UI_grid["date_label"]["sticky"])
+
+        self.date_entry_box = ctk.CTkEntry(self.date_frame, width=self.UI_grid["date_entry_box"]["width"])
+        self.date_entry_box.grid(row=self.UI_grid["date_entry_box"]["row"],
+                            column=self.UI_grid["date_entry_box"]["column"],
+                            sticky=self.UI_grid["date_entry_box"]["sticky"],
+                            padx=self.UI_grid["date_entry_box"]["padx"],
+                            pady=self.UI_grid["date_entry_box"]["pady"])
 
         self.browse_button = (ctk.CTkButton(self.input_frame,
                                         text=self.UI_grid["browse_button"]["text"],
@@ -151,9 +74,9 @@ class GUI:
                                 padx=self.UI_grid["browse_button"]["padx"],
                                 pady=self.UI_grid["browse_button"]["pady"])
 
-        self.check_headers_state = ctk.IntVar()
+        self.have_headers = ctk.IntVar()
         self.check_headers = ctk.CTkCheckBox(self.input_frame,
-                                             variable=self.check_headers_state,
+                                             variable=self.have_headers,
                                              text=self.UI_grid["check_headers"]["text"])
         self.check_headers.grid(row=self.UI_grid["check_headers"]["row"],
                                 column=self.UI_grid["check_headers"]["column"],
@@ -162,9 +85,9 @@ class GUI:
                                 sticky=self.UI_grid["check_headers"]["sticky"])
         self.check_headers.toggle()
 
-        self.check_code_and_name = ctk.IntVar() # todo Important. need include this logic too
+        self.have_name_and_code = ctk.IntVar()
         self.check_code_and_name = ctk.CTkCheckBox(self.input_frame,
-                                                  variable=self.check_code_and_name,
+                                                  variable=self.have_name_and_code,
                                                   text=self.UI_grid["check_code_and_name"]["text"])
         self.check_code_and_name.grid(row=self.UI_grid["check_code_and_name"]["row"],
                                       column=self.UI_grid["check_code_and_name"]["column"],
@@ -172,8 +95,10 @@ class GUI:
                                       pady=self.UI_grid["check_code_and_name"]["pady"],
                                       sticky=self.UI_grid["check_code_and_name"]["sticky"])
         self.check_code_and_name.toggle()
-        # todo Important. Date selector
-        self.output_frame = ttk.Frame(self.root, width=self.UI_grid["output_frame"]["width"])
+
+        calendar = DateEntry(self.date_frame, date_pattern="yyyy-mm-dd") # todo Important. Date selector
+
+        self.output_frame = ctk.CTkFrame(self.root, width=self.UI_grid["output_frame"]["width"])
         self.output_frame.grid(row=self.UI_grid["output_frame"]["row"],
                                sticky=self.UI_grid["output_frame"]["sticky"])
 
@@ -208,31 +133,27 @@ class GUI:
                                 padx=self.UI_grid["cancel_button"]["padx"],
                                 pady=self.UI_grid["cancel_button"]["pady"])
 
-        self.df_frame = ttk.Frame(self.root,
-                                  width=self.UI_grid["df_frame"]["width"],
-                                  height=self.UI_grid["df_frame"]["height"])
+        self.df_frame = ctk.CTkFrame(self.root)
         self.df_frame.grid(row=self.UI_grid["df_frame"]["row"],
                            sticky=self.UI_grid["df_frame"]["sticky"])
 
         self.df_tree = ttk.Treeview(self.df_frame)
-        self.vertical_stroll_bar = ttk.Scrollbar(self.df_frame, orient="vertical", command=self.df_tree.yview)
-        self.horizontal_stroll_bar = ttk.Scrollbar(self.df_frame, orient="horizontal", command=self.df_tree.xview)
+        self.vertical_stroll_bar = ctk.CTkScrollbar(self.df_frame, orientation="vertical", command=self.df_tree.yview)
+        self.horizontal_stroll_bar = ctk.CTkScrollbar(self.df_frame, orientation="horizontal", command=self.df_tree.xview)
         self.df_tree.configure(yscrollcommand=self.vertical_stroll_bar.set,
                                xscrollcommand=self.horizontal_stroll_bar.set)
 
         self.log_label = ctk.CTkLabel(self.root,
-                                  wraplength=400, # todo fix the text wrapping issue, its already bugging the system when I switched to CTk
+                                  wraplength=400, # fixme the text wrapping issue, its already bugging the system when I switched to CTk
                                   justify="left",
                                   height=self.UI_grid["log_label"]["height"],
                                   text=self.UI_grid["log_label"]["text"])
         self.log_label.grid(row=self.UI_grid["log_label"]["row"],
                             padx=self.UI_grid["log_label"]["padx"],
                             sticky=self.UI_grid["log_label"]["sticky"])
+        self.root.mainloop() # main loop, only to the end pls
 
-        # main loop, only to the end pls
-        self.root.mainloop()
-
-    def validate_csv(self, file_path, have_headers=True):
+    def validate_csv(self, file_path):
         if not os.path.exists(file_path):
             messagebox.showerror(title=self.error_messages["Invalid File Path"][0],
                                  message=self.error_messages["Invalid File Path"][1])
@@ -241,9 +162,9 @@ class GUI:
             return None
         try:
             header = None
-            if have_headers:
+            if self.have_headers.get():
                 header = 'infer'
-            df_validated = pd.read_csv(file_path, header=header, encoding='utf-8')
+            df_validated = pd.read_csv(file_path, dtype=str, header=header, encoding='utf-8')
         except UnicodeDecodeError:
             messagebox.showerror(title=self.error_messages["UnicodeDecodeError"][0],
                                  message=self.error_messages["UnicodeDecodeError"][1])
@@ -260,12 +181,8 @@ class GUI:
         self.entry_box.configure(state=ctk.NORMAL)
         self.entry_box.delete(0, ctk.END)
         self.entry_box.insert(0, file_path)
-        have_headers = True
-        if self.check_headers_state.get() == 0:
-            have_headers = False
-        elif self.check_headers_state.get() == 1:
-            have_headers = True
-        self.df_validated = self.validate_csv(file_path, have_headers)
+
+        self.df_validated = self.validate_csv(file_path)
         self.display_df(self.df_validated)
 
     def display_df(self, df_to_display=None):
@@ -290,7 +207,9 @@ class GUI:
         self.horizontal_stroll_bar.grid(row=self.UI_grid["horizontal_stroll_bar"]["row"],
                                         column=self.UI_grid["horizontal_stroll_bar"]["column"],
                                         sticky=self.UI_grid["horizontal_stroll_bar"]["sticky"])
-        self.root.pack_propagate(False) # todo fix the propagation properties
+        self.df_frame.grid_rowconfigure(0, weight=1)
+        self.df_frame.grid_columnconfigure(0, weight=1)
+        self.df_frame.configure(width=self.UI_grid["df_frame"]["width"], height=self.UI_grid["df_frame"]["height"])
 
     def clean_df(self, df_to_clean):
         df_cleaned = df_to_clean.apply(lambda col: col.dropna().reset_index(drop=True))
@@ -310,21 +229,50 @@ class GUI:
             return True
         return False
 
+    def combine_columns(self, df_to_combine):
+        concatenated_columns = []
+        for i in range(0, len(df_to_combine.columns), 2):
+            # Concatenate two columns
+            if i + 1 < len(df_to_combine.columns):
+                combined = df_to_combine.iloc[:, i].fillna('') + '%%' + df_to_combine.iloc[:, i + 1].fillna('')
+            else:
+                combined = df_to_combine.iloc[:, i].fillna('')  # Handle odd number of columns
+            concatenated_columns.append(combined)
+        print(concatenated_columns)
+        df_combined = pd.concat(concatenated_columns, axis=1)
+        self.display_df(df_combined)
+        return df_combined
+
+    @staticmethod
+    def split_columns(df_to_split):
+        result_df = pd.DataFrame()
+        for col in df_to_split.columns:
+            split_cols = df_to_split[col].str.split('%%', expand=True)
+            split_cols.columns = [f"{col}_{i+1}" for i in range(split_cols.shape[1])]
+            result_df = pd.concat([result_df, split_cols], axis=1)
+        return result_df
+
     def permutate_and_combine(self, df_input):
         self.log = ""
         df_cleaned = pd.DataFrame()
-        try:
+        try: # Raise exception when df is empty.
             df_cleaned = self.clean_df(df_input)
         except AttributeError:
             messagebox.showerror(title=self.error_messages["AttributeError"][0],
                                  message=self.error_messages["AttributeError"][1])
-        if self.exceeds_output_limit(df_cleaned):
+        if self.have_name_and_code.get():
+            df_cleaned = self.combine_columns(df_cleaned)
+        df_cleaned = df_cleaned.replace('%%', np.nan, regex=False)
+        combinations_generator = itertools.product(*[df_cleaned[col] for col in df_cleaned.columns])
+        if self.exceeds_output_limit(df_cleaned): # Raise exception when data to process is too large.
             self.logger(self.error_messages["LimitError"][1])
             messagebox.showwarning(title=self.error_messages["LimitError"][0],
                                    message=self.error_messages["LimitError"][1])
             return
-        combinations_generator = itertools.product(*[df_cleaned[col] for col in df_cleaned.columns])
         df_output = pd.DataFrame(combinations_generator, columns=df_cleaned.columns)
+        if self.have_name_and_code.get():
+            df_output = self.split_columns(df_output)
+            df_output.columns = self.df_validated.columns
         df_output = df_output.dropna()
         self.display_df(df_output)
         self.save(df_output)
@@ -335,7 +283,7 @@ class GUI:
         file_path = self.entry_box.get()
         temp_path_list = file_path.split(".")
         new_file_path = temp_path_list[0] + "_output" + ".csv"
-        if check and os.path.exists(new_file_path): # todo file names can be checked for duplicates
+        if check and os.path.exists(new_file_path): # fixme file names checked for duplicates not very profound
             temp_path_list = new_file_path.split(".")
             new_file_path = temp_path_list[0] + "(1)" + ".csv"
         df_to_save.to_csv(new_file_path, index=False)
@@ -344,7 +292,7 @@ class GUI:
     def logger(self, log_str):
         self.log_label.configure(text=log_str)
         print(log_str)
-        self.log += "\n [" + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + "] " +log_str
+        self.log += "[" + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + "] " + log_str + "\n"
 
     def view_log(self):
         messagebox.showinfo(title="Log", message=self.log)
