@@ -5,7 +5,9 @@ UI_grid = {"entry_box": {"row": 0, "column": 0, "width": 300, "sticky": "nw", "p
            "date_label": {"text": "Date format:",
                          "row": 0, "column": 0, "height": 2, "sticky": "nw", "padx": 10, "pady": 10},
 
-           "calendar_start": {"row": 0, "column": 2, "height": 2, "sticky": "nw", "padx": 10, "pady": 10},
+           "calendar_start": {"row": 1, "column": 0, "height": 2, "sticky": "nw", "padx": 10, "pady": 10},
+
+           "calendar_end": {"row": 1, "column": 1, "height": 2, "sticky": "nw", "padx": 10, "pady": 10},
 
            "browse_button": {"text": "Browse",
                              "row": 0, "column": 1, "width": 10, "sticky": "nw", "padx": 10, "pady": 0},

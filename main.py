@@ -1,6 +1,7 @@
 # system
 import os
 import sys
+import time
 from datetime import datetime
 
 # standard libraries
@@ -31,7 +32,7 @@ class GUI:
         # UI main
         self.root = ctk.CTk()
         self.root.title("Trigger Duplicator")
-        self.root.geometry("400x500") # fixme explore using pack to limit expansion
+        self.root.geometry("400x500") # fixme alignment is pretty insane
         # Widgets on initialisation
         self.input_frame = ctk.CTkFrame(self.root, width=self.UI_grid["input_frame"]["width"])
         self.input_frame.grid(row=self.UI_grid["input_frame"]["row"],
@@ -96,16 +97,22 @@ class GUI:
                                       sticky=self.UI_grid["check_code_and_name"]["sticky"])
         self.check_code_and_name.toggle()
 
-        calendar = DateEntry(self.date_frame, date_pattern="yyyy-mm-dd") # todo Important. Date selector
+        self.calendar_start = DateEntry(self.date_frame, date_pattern="yyyy-mm-dd") # todo date function
+        self.calendar_start.grid(row=self.UI_grid["calendar_start"]["row"],
+                                 column=self.UI_grid["calendar_start"]["column"])
+
+        self.calendar_end = DateEntry(self.date_frame, date_pattern="yyyy-mm-dd")
+        self.calendar_end.grid(row=self.UI_grid["calendar_end"]["row"],
+                               column=self.UI_grid["calendar_end"]["column"])
 
         self.output_frame = ctk.CTkFrame(self.root, width=self.UI_grid["output_frame"]["width"])
         self.output_frame.grid(row=self.UI_grid["output_frame"]["row"],
                                sticky=self.UI_grid["output_frame"]["sticky"])
 
         self.run_button = (ctk.CTkButton(self.output_frame,
-                                     text=self.UI_grid["run_button"]["text"],
-                                     command=lambda: self.permutate_and_combine(df_input=self.df_validated),
-                                     width=self.UI_grid["run_button"]["width"]))
+                                         text=self.UI_grid["run_button"]["text"],
+                                         command=lambda: self.permutate_and_combine(df_input=self.df_validated),
+                                         width=self.UI_grid["run_button"]["width"]))
         self.run_button.grid(row=self.UI_grid["run_button"]["row"],
                              column=self.UI_grid["run_button"]["column"],
                              sticky=self.UI_grid["run_button"]["sticky"],
@@ -124,9 +131,9 @@ class GUI:
                                   pady=self.UI_grid["view_log_button"]["pady"])
 
         self.cancel_button = (ctk.CTkButton(self.output_frame,
-                                        text=self.UI_grid["cancel_button"]["text"],
-                                        command=self.close,
-                                        width=self.UI_grid["cancel_button"]["width"]))
+                                            text=self.UI_grid["cancel_button"]["text"],
+                                            command=self.close,
+                                            width=self.UI_grid["cancel_button"]["width"]))
         self.cancel_button.grid(row=self.UI_grid["cancel_button"]["row"],
                                 column=self.UI_grid["cancel_button"]["column"],
                                 sticky=self.UI_grid["cancel_button"]["sticky"],
@@ -134,14 +141,12 @@ class GUI:
                                 pady=self.UI_grid["cancel_button"]["pady"])
 
         self.df_frame = ctk.CTkFrame(self.root)
-        self.df_frame.grid(row=self.UI_grid["df_frame"]["row"],
-                           sticky=self.UI_grid["df_frame"]["sticky"])
+        self.df_frame.grid(row=self.UI_grid["df_frame"]["row"], sticky=self.UI_grid["df_frame"]["sticky"])
 
         self.df_tree = ttk.Treeview(self.df_frame)
         self.vertical_stroll_bar = ctk.CTkScrollbar(self.df_frame, orientation="vertical", command=self.df_tree.yview)
         self.horizontal_stroll_bar = ctk.CTkScrollbar(self.df_frame, orientation="horizontal", command=self.df_tree.xview)
-        self.df_tree.configure(yscrollcommand=self.vertical_stroll_bar.set,
-                               xscrollcommand=self.horizontal_stroll_bar.set)
+        self.df_tree.configure(yscrollcommand=self.vertical_stroll_bar.set, xscrollcommand=self.horizontal_stroll_bar.set)
 
         self.log_label = ctk.CTkLabel(self.root,
                                   wraplength=400, # fixme the text wrapping issue, its already bugging the system when I switched to CTk
@@ -198,7 +203,7 @@ class GUI:
             self.df_tree.insert("", "end", values=list(row))
         self.logger("CSV loaded.")
         # display table
-        self.df_tree.grid(row=self.UI_grid["tree"]["row"],
+        self.df_tree.grid(row=self.UI_grid["tree"]["row"], # fixme idk why tree keeps expanding window...
                           column=self.UI_grid["tree"]["column"],
                           sticky=self.UI_grid["tree"]["sticky"])
         self.vertical_stroll_bar.grid(row=self.UI_grid["vertical_stroll_bar"]["row"],
@@ -263,6 +268,7 @@ class GUI:
         if self.have_name_and_code.get():
             df_cleaned = self.combine_columns(df_cleaned)
         df_cleaned = df_cleaned.replace('%%', np.nan, regex=False)
+        time.sleep(1)
         combinations_generator = itertools.product(*[df_cleaned[col] for col in df_cleaned.columns])
         if self.exceeds_output_limit(df_cleaned): # Raise exception when data to process is too large.
             self.logger(self.error_messages["LimitError"][1])
