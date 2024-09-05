@@ -1,3 +1,4 @@
+version = "v0.1"
 UI_grid = {
     "input_frame": {
         "config": {"row": 0, "sticky": "ew", "padx": 5, "pady": (5,0)},
@@ -25,20 +26,24 @@ UI_grid = {
 
     "df_frame": {
         "config": {"row": 2, "height": 300, "sticky": "ew", "padx": 5, "pady": (5, 0)},
-        "tree": {"row": 0, "column": 0, "sticky": "ew", "padx": 5, "pady": (5, 0)},
+        "tree": {"row": 0, "column": 0, "sticky": "ew", "padx": 5, "pady": (5, 5)},
         "vertical_stroll_bar": {"row": 0, "column": 1, "sticky": "ns"},
-        "horizontal_stroll_bar": {"row": 1, "column": 0, "sticky": "ew"},
-        "log_label": {"text": "Press Start", "row": 2, "column": 0, "sticky": "w", "padx": (5, 5)}
+        "horizontal_stroll_bar": {"row": 1, "column": 0, "sticky": "ew"}
     },
 
     "output_frame": {
-        "config": {"row": 3, "sticky": "ew", "padx": 5, "pady": (5, 5)},
+        "config": {"row": 3, "sticky": "ew", "padx": 5, "pady": (5, 0)},
         "run_button": {"text": "Start",
                        "row": 0, "column": 0, "sticky": "w", "padx": 5, "pady": (5, 5)},
         "view_log_button": {"text": "View Log",
                             "row": 0, "column": 1, "sticky": "w", "padx": 5, "pady": (5, 5)},
         "cancel_button": {"text": "Exit",
                           "row": 0, "column": 2, "sticky": "e", "padx": 5, "pady": (5, 5)}
+    },
+
+    "log_frame": {
+        "config": {"row": 4, "sticky": "ew", "padx": 5, "pady": (5, 5)},
+        "log_label": {"text": "Press Start", "row": 0, "column": 0, "sticky": "w", "padx": (5, 5)}
     }
 }
 

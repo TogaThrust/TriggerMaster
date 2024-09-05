@@ -1,8 +1,8 @@
 # system
 import os
 import sys
-from datetime import datetime
 import threading
+from datetime import datetime
 
 # standard libraries
 import pandas as pd
@@ -16,6 +16,8 @@ from tkinter import ttk # treeview not implemented in CTk
 from tkinter import filedialog as fd
 from tkinter import messagebox
 
+from global_var import version
+
 # CTk config
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("theme.json") # todo create custom theme, also maybe a house font
@@ -25,16 +27,23 @@ import global_var
 
 class GUI:
     def __init__(self):
-        # Var declarations
-        self.df_validated = None
-        self.log = ""
-        self.warning_limit = 1_000_000
+        # libraries
         self.error_messages = global_var.error_messages
         self.UI_grid = global_var.UI_grid
-        self.num_threads = os.cpu_count()
+        # dataframes
+        self.df_raw = None
+        self.df_cleaned = None
+        # threading
+        self.process_thread = None
+        self.stop_event = threading.Event()
+        self.expected_output = 0
+        self.total_processed = 0
+        # logging
+        self.log = ""
+
         # UI main
         self.root = ctk.CTk()
-        self.root.title("Trigger Duplicator")
+        self.root.title(f"Trigger Master {version}")
         self.root.resizable(False, False)
 
         # Input frame and its widgets
@@ -149,13 +158,6 @@ class GUI:
         self.df_tree.configure(yscrollcommand=self.vertical_stroll_bar.set,
                                xscrollcommand=self.horizontal_stroll_bar.set)
 
-        # fixme the text wrapping issue, its already bugging the system when I switched to CTk
-        self.log_label = ctk.CTkLabel(self.df_frame, wraplength=400, justify="left",
-                                      text=self.UI_grid["df_frame"]["log_label"]["text"])
-        self.log_label.grid(row=self.UI_grid["df_frame"]["log_label"]["row"],
-                            padx=self.UI_grid["df_frame"]["log_label"]["padx"],
-                            sticky=self.UI_grid["df_frame"]["log_label"]["sticky"])
-
         # Output frame and its widgets
         self.output_frame = ctk.CTkFrame(self.root)
         self.output_frame.grid(row=self.UI_grid["output_frame"]["config"]["row"],
@@ -165,7 +167,7 @@ class GUI:
 
         self.run_button = (ctk.CTkButton(self.output_frame,
                                          text=self.UI_grid["output_frame"]["run_button"]["text"],
-                                         command=lambda: self.main_task_wrapper(df_input=self.df_validated)))
+                                         command=self.main_task))
         self.run_button.grid(row=self.UI_grid["output_frame"]["run_button"]["row"],
                              column=self.UI_grid["output_frame"]["run_button"]["column"],
                              sticky=self.UI_grid["output_frame"]["run_button"]["sticky"],
@@ -191,10 +193,24 @@ class GUI:
                                 padx=self.UI_grid["output_frame"]["cancel_button"]["padx"],
                                 pady=self.UI_grid["output_frame"]["cancel_button"]["pady"])
 
+        # Log frame and its widgets
+        self.log_frame = ctk.CTkFrame(self.root)
+        self.log_frame.grid(row=self.UI_grid["log_frame"]["config"]["row"],
+                            sticky=self.UI_grid["log_frame"]["config"]["sticky"],
+                            padx=self.UI_grid["log_frame"]["config"]["padx"],
+                            pady=self.UI_grid["log_frame"]["config"]["pady"])
+
+        self.log_label = ctk.CTkLabel(self.log_frame, text=self.UI_grid["log_frame"]["log_label"]["text"])
+        self.log_label.grid(row=self.UI_grid["log_frame"]["log_label"]["row"],
+                            padx=self.UI_grid["log_frame"]["log_label"]["padx"],
+                            sticky=self.UI_grid["log_frame"]["log_label"]["sticky"])
+        self.log_frame.configure(height=self.log_label.winfo_reqheight())
+        self.log_frame.grid_propagate(False)
+
         # main loop, only to the end pls
         self.root.mainloop()
 
-    def validate_csv(self, file_path):
+    def validate_file_path(self, file_path):
         if not os.path.exists(file_path):
             messagebox.showerror(title=self.error_messages["Invalid File Path"][0],
                                  message=self.error_messages["Invalid File Path"][1])
@@ -217,19 +233,24 @@ class GUI:
         self.entry_box.configure(state=ctk.DISABLED)
         return df_validated
 
-    def browse_file(self):
-        file_path = fd.askopenfilename(title="Select file", filetypes=(("CSV Files", "*.csv"),))
-        self.entry_box.configure(state=ctk.NORMAL)
-        self.entry_box.delete(0, ctk.END)
-        self.entry_box.insert(0, file_path)
-
-        self.df_validated = self.validate_csv(file_path)
-        self.display_df(self.df_validated)
-        self.logger("CSV loaded.")
+    def clean_raw_df(self):
+        df_to_clean = pd.DataFrame()
+        try:  # Raise exception when df is empty.
+            df_to_clean = self.df_raw.apply(lambda col: col.dropna().reset_index(drop=True))
+            self.logger(f"Removed NaN rows.")
+            max_len = df_to_clean.apply(len).max()
+            df_to_clean = df_to_clean.apply(lambda col: col.reindex(range(max_len)))
+        except AttributeError:
+            messagebox.showerror(title=self.error_messages["AttributeError"][0],
+                                 message=self.error_messages["AttributeError"][1])
+        if self.have_name_and_code.get():
+            df_to_clean = self.combine_columns(df_to_clean)
+        self.df_cleaned = df_to_clean.replace('%%', np.nan, regex=False)
+        return
 
     def display_df(self, df_to_display=None):
         if df_to_display is None:
-            df_to_display = self.df_validated
+            df_to_display = self.df_raw
         self.df_tree.delete(*self.df_tree.get_children())
         self.df_tree["columns"] = list(df_to_display.columns)
         self.df_tree["show"] = "headings"  # Hide the first empty column
@@ -253,23 +274,23 @@ class GUI:
         self.df_frame.grid_rowconfigure(0, weight=1)
         self.df_frame.grid_columnconfigure(0, weight=1)
 
-    def clean_df(self, df_to_clean):
-        df_cleaned = df_to_clean.apply(lambda col: col.dropna().reset_index(drop=True))
-        self.logger(f"Removed NaN rows.")
-        max_len = df_cleaned.apply(len).max()
-        df_cleaned = df_cleaned.apply(lambda col: col.reindex(range(max_len)))
-        return df_cleaned
-
     def get_expected_output(self, df_to_read):
         number_in_column = df_to_read.notna().sum()
         expected_combinations = number_in_column.prod()
         self.logger(f"{expected_combinations} rows expected.")
+        self.expected_output = expected_combinations
         return expected_combinations
 
-    def exceeds_output_limit(self, df_to_read):
-        if self.get_expected_output(df_to_read) > self.warning_limit:
-            return True
-        return False
+    def limit_check(self, warning_limit = 1_000_000): # Raise exception when data to process is too large.
+        if self.get_expected_output(self.df_cleaned) > warning_limit:
+            self.logger(self.error_messages["LimitWarning"][2])
+            selected_button = messagebox.askquestion(title=self.error_messages["LimitWarning"][0],
+                                                     message=self.error_messages["LimitWarning"][1],
+                                                     icon=messagebox.WARNING, type=messagebox.OKCANCEL)
+            if selected_button == "cancel":
+                self.logger("User cancelled.")
+                return
+        return
 
     @ staticmethod
     def combine_columns(df_to_combine):
@@ -298,67 +319,70 @@ class GUI:
             self.logger(self.error_messages["RuntimeError"][1])
         return result_df
 
-    def show_loading_info(self, process_thread): # todo loading screen?
-        pass
-
-    @staticmethod
-    def chunked_generator(generator, chunk_size):
+    def chunk_generator(self, chunk_size):
+        print(self.df_cleaned)
+        generator = itertools.product(*[self.df_cleaned[col] for col in self.df_cleaned.columns])
         chunk = []
         for i, combination in enumerate(generator):
             chunk.append(combination)
-            if (i + 1) % chunk_size == 0:
+            if len(chunk) == chunk_size:
                 yield chunk
                 chunk = []
         if chunk:
             yield chunk
 
-    def permutate_and_combine(self, target_df, chunk_size=100_000): # The actual main task that is called
+    def write_chunk(self, chunk, file_path, write_header):
+        df_output = pd.DataFrame(chunk, columns=self.df_cleaned.columns)
+        df_output.dropna(inplace=True)
+        if df_output.empty:
+            return
+        if self.have_name_and_code.get():
+            df_output = self.split_columns(df_output)
+            df_output.columns = self.df_raw.columns
+        # fixme chinese char breaks when writing from df to csv
+        file_lock = threading.Lock()
+        with file_lock:
+            df_output.to_csv(file_path, index=False, header=write_header, mode='a')
+        self.total_processed += df_output.shape[0]
+        percent_complete = round((self.total_processed / self.expected_output) * 100, 2)
+        self.log_label.configure(text=f"Loading... {percent_complete}% complete.")
+        if percent_complete == 100: # stop the main process cleanly
+            self.stop_event.set()
+            if self.process_thread.is_alive():
+                self.process_thread.join()
+        return
+
+    # fixme find out where the extra data coming from, and how to exit the main program when finished.
+    def thread_handler(self, chunk_size=100_000): # The actual main task that is called
         file_path = self.get_new_file_path()
-        combinations_generator = itertools.product(*[target_df[col] for col in target_df.columns])
         self.logger(f"Process started.")
-        total_processed = 0
-        df_output = pd.DataFrame()
-        for i, chunk in enumerate(self.chunked_generator(generator=combinations_generator, chunk_size=chunk_size)):
+        self.total_processed = 0
+        max_threads = 4
+        threads = []
+        for i, chunk in enumerate(self.chunk_generator(chunk_size=chunk_size)):
+            print(f"chunk size: {len(chunk)}")
             write_header = (i == 0)
-            df_output = pd.DataFrame(chunk, columns=target_df.columns)
-            df_output.dropna(inplace=True)
-            if df_output.empty:
-                continue
-            if self.have_name_and_code.get():
-                df_output = self.split_columns(df_output)
-                df_output.columns = self.df_validated.columns
-            df_output = df_output.dropna()
-            self.save(df_output, file_path, write_header)
-            total_processed += df_output.shape[0]
-            self.log_label.configure(text=f"Generated {total_processed} combinations.")
-        self.display_df(df_output)
-        self.logger(f"Processed total of {total_processed} combinations.")
+            thread = threading.Thread(target=self.write_chunk, args=(chunk, file_path, write_header), daemon=True)
+            threads.append(thread)
+            self.stop_event.clear()
+            thread.start()
+            print(f"Thread {i} started.")
+            if len(threads) >= max_threads:
+                for t in threads:
+                    t.join()  # Wait for current threads to finish
+                threads = []  # Clear the list for the next batch
+        for t in threads:
+            t.join()
+        self.logger(f"Generated {self.total_processed} combinations.")
         self.logger(f"Data exported to '{file_path}'.")
         self.run_button.configure(state=ctk.DISABLED)
 
-    def main_task_wrapper(self, df_input): # Basically other important functions other than main task.
+    def main_task(self): # Basically other important functions other than main task.
         self.log = ""
-        df_cleaned = pd.DataFrame()
-        try:  # Raise exception when df is empty.
-            df_cleaned = self.clean_df(df_input)
-        except AttributeError:
-            messagebox.showerror(title=self.error_messages["AttributeError"][0],
-                                 message=self.error_messages["AttributeError"][1])
-        if self.have_name_and_code.get():
-            df_cleaned = self.combine_columns(df_cleaned)
-        df_cleaned = df_cleaned.replace('%%', np.nan, regex=False)
-        print(df_cleaned)
-        if self.exceeds_output_limit(df_cleaned):  # Raise exception when data to process is too large.
-            self.logger(self.error_messages["LimitWarning"][2])
-            selected_button = messagebox.askquestion(title=self.error_messages["LimitWarning"][0],
-                                                     message=self.error_messages["LimitWarning"][1],
-                                                     icon=messagebox.WARNING, type=messagebox.OKCANCEL)
-            if selected_button == "cancel":
-                self.logger("User cancelled.")
-                return
-        process_thread = threading.Thread(target=lambda: self.permutate_and_combine(df_cleaned))
-        process_thread.start()
-        self.show_loading_info(process_thread)
+        self.clean_raw_df()
+        self.limit_check()
+        self.process_thread = threading.Thread(target=self.thread_handler, daemon=True) # Create new thread to handle back end processing.
+        self.process_thread.start()
 
     def get_new_file_path(self):
         file_path = self.entry_box.get()
@@ -369,16 +393,23 @@ class GUI:
             new_file_path = temp_path_list[0] + "(1)" + ".csv"
         return new_file_path
 
-    @staticmethod
-    def save(df_to_save, file_path, headers):
-        df_to_save.to_csv(file_path, index=False, header=headers, mode='a', encoding='utf-8')
-
     def logger(self, log_str):
         self.log_label.configure(text=log_str)
         print(log_str)
         self.log += "[" + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + "] " + log_str + "\n"
 
+    def browse_file(self):
+        file_path = fd.askopenfilename(title="Select file", filetypes=(("CSV Files", "*.csv"),))
+        self.entry_box.configure(state=ctk.NORMAL)
+        self.entry_box.delete(0, ctk.END)
+        self.entry_box.insert(0, file_path)
+        self.df_raw = self.validate_file_path(file_path)
+        self.display_df()
+        self.logger(f"CSV loaded: {file_path}")
+
     def view_log(self):
+        if self.log == "":
+            self.log = "Run program to view log."
         messagebox.showinfo(title="Log", message=self.log)
         print(self.log)
 
