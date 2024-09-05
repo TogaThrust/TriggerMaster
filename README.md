@@ -1,0 +1,2 @@
+# TriggerMaster
+CSV data manipulator.
