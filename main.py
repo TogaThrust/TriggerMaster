@@ -1,5 +1,3 @@
-version = "v0.1"
-
 # system
 import sys
 from datetime import datetime
@@ -25,15 +23,15 @@ from lib.Engine.CombinationsGenerator import CombinationsGenerator
 
 class GUI:
     def __init__(self):
-        self.combinations_generator = CombinationsGenerator(ErrorHandler())
-        self.file_handler = FileHandler(ErrorHandler())
+        self.combinations_generator = CombinationsGenerator(ErrorHandler(self.logger))
+        self.file_handler = FileHandler(ErrorHandler(self.logger))
         # libraries
         self.ui_grid = ui_grid
         self.log = ""
 
         # UI main
         self.root = ctk.CTk()
-        self.root.title(f"Trigger Master {version}")
+        self.root.title(f"Trigger Master")
         self.root.resizable(False, False)
 
         # Input frame and its widgets
@@ -228,9 +226,8 @@ class GUI:
         return None
 
     def main_task(self) -> str | bool:
-        self.log = ""
         self.file_handler.clean_raw_df(self.have_name_and_code.get())
-        expected_combinations, error_str = self.combinations_generator.limit_check(df=self.file_handler.df_cleaned)
+        error_str = self.combinations_generator.limit_check(df=self.file_handler.df_cleaned)
         if error_str:
             self.logger("Data exceeds output limit. Recommended to reduce number of dimensions or rows of data.")
             if error_str == "cancel":
@@ -245,13 +242,24 @@ class GUI:
                                                                       self.combinations_generator.write_path),
                                                                 daemon=True)
         process_thread.start()
+        self.logger("Process to create new combinations has started.")
         return True
 
-    def logger(self, log_str: str) -> None:
+    def logger(self, log_str: str, is_update=False) -> None:
+        if is_update:
+            self.root.after(0, self._update_status_label, log_str)
+        else:
+            self.root.after(0, self._log_to_widget, log_str)
+        return None
+
+    def _log_to_widget(self, log_str: str) -> None:
         self.log_label.configure(text=log_str)
         print(log_str)
         self.log += "[" + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + "] " + log_str + "\n"
         return None
+
+    def _update_status_label(self, status_str):
+        self.log_label.configure(text=status_str)
 
     def browse_file(self) -> Type[AttributeError] | bool:
         file_path = fd.askopenfilename(title="Select file", filetypes=(("CSV Files", "*.csv"),))
