@@ -15,7 +15,6 @@ class ErrorHandler:
 
                                "RuntimeError": ["Runtime Error",
                                                 "Program encountered an error in writing data into CSV."
-                                                + " Actually this is an unfixable error."
                                                 + " Try having no adjacent NA values in your input file."],
                                }
 
