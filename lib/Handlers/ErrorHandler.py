@@ -3,6 +3,7 @@ from tkinter import messagebox
 
 class ErrorHandler:
     def __init__(self, logger):
+        self.logger = logger
         self.error_messages = {"Invalid File Path": ["Invalid File Path", "File does not exist!"],
 
                                "UnicodeDecodeError": ["Read Error", "Program is having trouble reading your file."
@@ -17,7 +18,6 @@ class ErrorHandler:
                                                 + " Actually this is an unfixable error."
                                                 + " Try having no adjacent NA values in your input file."],
                                }
-        self.logger = logger
 
     def raise_question_box(self, error_type: str) -> str:
         user_selection = messagebox.askquestion(title=self.error_messages[error_type][0],
@@ -25,10 +25,10 @@ class ErrorHandler:
                                                 icon=messagebox.WARNING, type=messagebox.OKCANCEL)
         return user_selection
 
-    def raise_error_box(self, error_type: str, log_str: str | None) -> None:
+    def raise_error_box(self, error_type: str, log_str: str | None) -> str:
         messagebox.showerror(title=self.error_messages[error_type][0],
                              message=self.error_messages[error_type][1])
         if log_str is None:
             log_str = self.error_messages[error_type][1]
-        self.logger(log_str)
-        return None
+        self.logger.log(log_str, log_type="instance record")
+        return error_type

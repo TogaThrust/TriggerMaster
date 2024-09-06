@@ -4,13 +4,15 @@ import pandas as pd
 from typing import Type
 
 class CombinationsGenerator:
-    def __init__(self, error_handler):
+    def __init__(self, logger, error_handler):
+        self.logger = logger
         self.error_handler = error_handler
         self.stop_event = threading.Event()
         self.process_thread = None
         self.expected_output = 0
         self.total_processed = 0
         self.write_path = ""
+        self.error_flag = False
 
     def get_expected_output(self, df) -> None:
         number_in_column = df.notna().sum()
@@ -25,7 +27,7 @@ class CombinationsGenerator:
             return self.error_handler.raise_question_box(error_type="LimitWarning")
         return None
 
-    def split_columns(self, df) -> pd.DataFrame | str:
+    def split_columns(self, df) -> pd.DataFrame:
         df_split = pd.DataFrame
         try:
             for col in df.columns:
@@ -33,9 +35,11 @@ class CombinationsGenerator:
                 split_cols.columns = [f"{col}_{i + 1}" for i in range(split_cols.shape[1])]
                 df_split = pd.concat([df_split, split_cols], axis=1)
         except AttributeError: # Probably got to do with UTC-8 conversion
-            return self.error_handler.raise_error_box(error_type="AttributeError", log_str=None)
+            self.error_handler.raise_error_box(error_type="AttributeError", log_str=None)
+            return df_split
         except TypeError: # Mismatch between two columns
-            return self.error_handler.raise_error_box(error_type="RuntimeError",log_str=None)
+            self.error_handler.raise_error_box(error_type="RuntimeError",log_str=None)
+            return df_split
         return df_split
 
     @ staticmethod
@@ -52,20 +56,21 @@ class CombinationsGenerator:
         return None
 
     def write_chunk(self, chunk: list, write_header: bool, df, original_columns: list,
-                    have_name_and_code: int) -> Type[RuntimeError | ValueError] | None:
+                    have_name_and_code: int) -> Type[RuntimeError] | None:
         df_output = pd.DataFrame(chunk, columns=df.columns)
         df_output.dropna(inplace=True)
         if have_name_and_code:
             df_output = self.split_columns(df_output)
+            if df_output.any:
+                return RuntimeError
             df_output.columns = original_columns
         # fixme chinese char breaks when writing from df to csv
-        print("Still Running")
         file_lock = threading.Lock()
         with file_lock:
             df_output.to_csv(self.write_path, index=False, header=write_header, mode='a')
-        self.total_processed += df_output.shape[0]
-        percent_complete = round((self.total_processed / self.expected_output) * 100, 2)
-        self.error_handler.logger(f"Loading... {percent_complete}% complete.", is_update=True)
+            self.total_processed += df_output.shape[0]
+            percent_complete = round((self.total_processed / self.expected_output) * 100, 2)
+            self.logger.log(log_str=f"Loading... {percent_complete}% complete.", log_type="update")
         return None
 
     # fixme find out where the extra data coming from, and how to exit the main program when finished.
@@ -89,5 +94,7 @@ class CombinationsGenerator:
                 threads = []  # Clear the list for the next batch
         for t in threads:
             t.join()
-        self.error_handler.logger(f"Processed {self.total_processed} combinations to path {self.write_path}")
+        if not self.error_flag:
+            self.logger.log(log_str=f"Processed {self.total_processed} combinations to path {self.write_path}",
+                            log_type="instance record")
         return None
