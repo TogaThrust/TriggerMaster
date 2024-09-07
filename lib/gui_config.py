@@ -4,8 +4,8 @@ ui_grid = {
         "entry_box": {"row": 0, "column": 0, "sticky": "ew", "padx": 5, "pady": (5,0)},
         "browse_button": {"text": "Browse",
                           "row": 0, "column": 4, "sticky": "e", "padx": 5, "pady": (5,0)},
-        "check_headers": {"text": "My file has headers", "row": 1, "column": 0,
-                          "sticky": "w", "padx": 10, "pady": (5,0)},
+        "check_headers": {"text": "First row is headers.", "row": 1, "column": 0,
+                          "sticky": "w", "padx": 5, "pady": (5,5)},
         "check_code_and_name": {"text": "Data includes both Code and Name", "row": 2,
                                 "sticky": "w", "padx": 10, "pady": (5,5)},
     },
@@ -45,3 +45,5 @@ ui_grid = {
         "log_label": {"text": "Press Start", "row": 0, "column": 0, "sticky": "w", "padx": (5, 5)}
     }
 }
+
+custom_font = ("Lato", 14)

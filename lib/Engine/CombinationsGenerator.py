@@ -50,7 +50,7 @@ class CombinationsGenerator:
         df_output.dropna(inplace=False)
         return df_output
 
-    def thread_handler(self, df, original_columns: list , have_name_and_code: int,
+    def thread_handler(self, df, original_columns: list , have_name_and_code: int, enable_buttons,
                        chunk_size: int = 100_000) -> None | str | Type[AttributeError | TypeError]:
         start_time = time.perf_counter()
         self.total_processed = 0
@@ -58,7 +58,7 @@ class CombinationsGenerator:
         chunk_ranges = [(i, min(i + chunk_size, self.expected_output)) for i in range(0, self.expected_output, chunk_size)]
         with Pool(cpu_count()-1) as pool:
             results = pool.starmap(self.process_chunk, [(columns, start, end) for start, end in chunk_ranges])
-        with open(self.write_path, mode='w', newline='', encoding='utf-8') as file:
+        with open(self.write_path, mode='w', newline='', encoding='utf-8-sig') as file:
             for i, df_output in enumerate(results):
                 if have_name_and_code:
                     df_output = self.split_columns(df_output)
@@ -72,14 +72,15 @@ class CombinationsGenerator:
                         elif df_output == TypeError:
                             self.error_handler.raise_error_box(error_type="RuntimeError", log_str=None)
                             return TypeError
-                df_output.to_csv(file, header=(i == 0), index=False)
+                df_output.to_csv(file, header=(i == 0), index=False, encoding='utf-8-sig')
                 self.total_processed += df_output.shape[0]
                 percentage_complete = round((self.total_processed / self.expected_output) * 100, 2)
                 self.logger.log(log_str=f"{percentage_complete}% complete.", log_type="update")
         end_time = time.perf_counter()
         time_taken = round((end_time - start_time), 2)
-        self.logger.log(log_str=f"Time taken: {time_taken}", log_type="instance record")
+        enable_buttons()
         if not self.error_flag:
+            self.logger.log(log_str=f"Time taken: {time_taken}", log_type="instance record")
             self.logger.log(log_str=f"Processed {self.total_processed} combinations to path {self.write_path}",
                             log_type="instance record")
         return None
