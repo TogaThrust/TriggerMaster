@@ -78,7 +78,7 @@ class CombinationsGenerator:
                 self.logger.log(log_str=f"{percentage_complete}% complete.", log_type="update")
         end_time = time.perf_counter()
         time_taken = round((end_time - start_time), 2)
-        enable_buttons()
+        self.toggle_all("NORMAL")
         if not self.error_flag:
             self.logger.log(log_str=f"Time taken: {time_taken}", log_type="instance record")
             self.logger.log(log_str=f"Processed {self.total_processed} combinations to path {self.write_path}",

@@ -1,6 +1,7 @@
 ui_grid = {
+    "image": {"row": 0, "sticky": "w", "padx": 5, "pady": (5,0)},
     "input_frame": {
-        "config": {"row": 0, "sticky": "ew", "padx": 5, "pady": (5,0)},
+        "config": {"row": 1, "sticky": "ew", "padx": 5, "pady": (5,0)},
         "entry_box": {"row": 0, "column": 0, "sticky": "ew", "padx": 5, "pady": (5,0)},
         "browse_button": {"text": "Browse",
                           "row": 0, "column": 4, "sticky": "e", "padx": 5, "pady": (5,0)},
@@ -11,7 +12,7 @@ ui_grid = {
     },
 
     "date_frame": {
-        "config": {"row": 1, "sticky": "ew", "padx": 5, "pady": (5, 0)},
+        "config": {"row": 2, "sticky": "ew", "padx": 5, "pady": (5, 0)},
         "date_format_label": {"text": "Date format:", "row": 0, "column": 0, "sticky": "w",
                               "padx": 5, "pady": (5,0)},
         "date_entry_box": {"row": 0, "column": 1, "sticky": "ew", "padx": 5, "pady": (5,0)},
@@ -24,14 +25,14 @@ ui_grid = {
     },
 
     "df_frame": {
-        "config": {"row": 2, "height": 300, "sticky": "ew", "padx": 5, "pady": (5, 0)},
+        "config": {"row": 3, "height": 300, "sticky": "ew", "padx": 5, "pady": (5, 0)},
         "tree": {"row": 0, "column": 0, "sticky": "ew", "padx": 5, "pady": (5, 5)},
         "vertical_stroll_bar": {"row": 0, "column": 1, "sticky": "ns"},
         "horizontal_stroll_bar": {"row": 1, "column": 0, "sticky": "ew"}
     },
 
     "output_frame": {
-        "config": {"row": 3, "sticky": "ew", "padx": 5, "pady": (5, 0)},
+        "config": {"row": 4, "sticky": "ew", "padx": 5, "pady": (5, 0)},
         "run_button": {"text": "Start",
                        "row": 0, "column": 0, "sticky": "w", "padx": 5, "pady": (5, 5)},
         "view_log_button": {"text": "View Log",
@@ -41,7 +42,7 @@ ui_grid = {
     },
 
     "log_frame": {
-        "config": {"row": 4, "sticky": "ew", "padx": 5, "pady": (5, 5)},
+        "config": {"row": 5, "sticky": "ew", "padx": 5, "pady": (5, 5)},
         "log_label": {"text": "Press Start", "row": 0, "column": 0, "sticky": "w", "padx": (5, 5)}
     }
 }

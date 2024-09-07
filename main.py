@@ -2,8 +2,9 @@ import sys
 import threading
 from typing import Type
 import customtkinter as ctk
+from PIL import Image, ImageTk
 from tkcalendar import DateEntry
-from tkinter import ttk, messagebox, PhotoImage, filedialog as fd # treeview not implemented in CTk
+from tkinter import ttk, messagebox, PhotoImage, filedialog as fd  # treeview not implemented in CTk
 from lib.gui_config import ui_grid, custom_font
 from lib.Handlers.ErrorHandler import ErrorHandler
 from lib.Handlers.FileHandler import FileHandler
@@ -20,16 +21,28 @@ class GUI:
         self.root.title(f"Trigger Master")
         self.root.resizable(width=False, height=False)
 
+        # Icon
+        self.root.iconbitmap('lib/assets/icon.ico')
+
+        # Image
+        target_height = 40
+        self.pil_image = Image.open("lib/assets/logo.png")
+        original_width, original_height = self.pil_image.size
+        scale = target_height / original_height
+        new_width = int(original_width * scale)
+        new_height = int(original_height * scale)
+        self.resized_image = self.pil_image.resize((new_width, new_height))
+        self.image = ImageTk.PhotoImage(self.resized_image)
+        self.image_label = ctk.CTkLabel(self.root,text="", image=self.image)
+        self.image_label.grid(row=self.ui_grid["image"]["row"], padx=self.ui_grid["image"]["padx"],
+                              pady=self.ui_grid["image"]["pady"], sticky=self.ui_grid["image"]["sticky"])
+
         # Input frame and its widgets
         self.input_frame = ctk.CTkFrame(self.root)
         self.input_frame.grid(row=self.ui_grid["input_frame"]["config"]["row"],
                               sticky=self.ui_grid["input_frame"]["config"]["sticky"],
                               padx=self.ui_grid["input_frame"]["config"]["padx"],
                               pady=self.ui_grid["input_frame"]["config"]["pady"])
-
-        self.image = PhotoImage(file="path_to_your_image.png")  # Adjust the path to your image file
-        self.image_label = ctk.CTkLabel(self.root, image=self.image)
-        self.image_label.pack(padx=10, pady=10)
 
         self.entry_box = ctk.CTkEntry(self.input_frame, font=self.font)
         self.entry_box.grid(row=self.ui_grid["input_frame"]["entry_box"]["row"],
@@ -241,28 +254,22 @@ class GUI:
                                 + f"{self.file_handler.df_raw.shape[0]} rows.", log_type="record")
         return None
 
-    def disable_all(self) -> None:
-        self.run_button.configure(state=ctk.DISABLED)
-        self.browse_button.configure(state=ctk.DISABLED)
-        self.check_headers.configure(state=ctk.DISABLED)
-        self.check_code_and_name.configure(state=ctk.DISABLED)
-        self.date_entry_box.configure(state=ctk.DISABLED)
-        self.calendar_start.configure(state=ctk.DISABLED)
-        self.calendar_end.configure(state=ctk.DISABLED)
-        return None
-
-    def enable_all(self) -> None:
-        self.run_button.configure(state=ctk.NORMAL)
-        self.browse_button.configure(state=ctk.NORMAL)
-        self.check_headers.configure(state=ctk.NORMAL)
-        self.check_code_and_name.configure(state=ctk.NORMAL)
-        self.date_entry_box.configure(state=ctk.NORMAL)
-        self.calendar_start.configure(state=ctk.NORMAL)
-        self.calendar_end.configure(state=ctk.NORMAL)
+    def toggle_all(self, state) -> None:
+        if state == "DISABLED":
+            state = ctk.DISABLED
+        elif state == "NORMAL":
+            state = ctk.NORMAL
+        self.run_button.configure(state=state)
+        self.browse_button.configure(state=state)
+        self.check_headers.configure(state=state)
+        self.check_code_and_name.configure(state=state)
+        self.date_entry_box.configure(state=state)
+        self.calendar_start.configure(state=state)
+        self.calendar_end.configure(state=state)
         return None
 
     def run(self) -> str | None:
-        self.disable_all()
+        self.toggle_all("DISABLED")
         self.file_handler.clean_raw_df(self.have_name_and_code.get())
         error_str = self.combinations_generator.limit_check(df=self.file_handler.df_cleaned)
         if error_str:
@@ -278,7 +285,7 @@ class GUI:
         process_thread = threading.Thread(target=self.combinations_generator.thread_handler,
                                           daemon=True, name="Main Instance",
                                           args=(self.file_handler.df_cleaned, self.file_handler.df_raw.columns,
-                                                self.have_name_and_code.get(), self.enable_all))
+                                                self.have_name_and_code.get(), self.toggle_all))
         process_thread.start()
         self.logger.log(log_str="Process to create new combinations has started.", log_type="record")
         return None
