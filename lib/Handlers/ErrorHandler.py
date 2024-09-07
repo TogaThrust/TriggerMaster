@@ -1,6 +1,5 @@
 from tkinter import messagebox
 
-
 class ErrorHandler:
     def __init__(self, logger):
         self.logger = logger

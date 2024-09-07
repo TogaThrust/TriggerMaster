@@ -7,7 +7,6 @@ class CombinationsGenerator:
     def __init__(self, logger, error_handler):
         self.logger = logger
         self.error_handler = error_handler
-        self.stop_event = threading.Event()
         self.process_thread = None
         self.expected_output = 0
         self.total_processed = 0
@@ -27,8 +26,8 @@ class CombinationsGenerator:
             return self.error_handler.raise_question_box(error_type="LimitWarning")
         return None
 
-    def split_columns(self, df) -> pd.DataFrame:
-        df_split = pd.DataFrame
+    def split_columns(self, df: pd.DataFrame) -> pd.DataFrame | Type[AttributeError | TypeError]:
+        df_split = pd.DataFrame()
         try:
             for col in df.columns:
                 split_cols = df[col].str.split('%%', expand=True)
@@ -36,15 +35,16 @@ class CombinationsGenerator:
                 df_split = pd.concat([df_split, split_cols], axis=1)
         except AttributeError: # Probably got to do with UTC-8 conversion
             self.error_handler.raise_error_box(error_type="AttributeError", log_str=None)
-            return df_split
+            return AttributeError
         except TypeError: # Mismatch between two columns
             self.error_handler.raise_error_box(error_type="RuntimeError",log_str=None)
-            return df_split
+            return TypeError
         return df_split
 
     @ staticmethod
-    def chunk_generator(df, chunk_size: int) -> list | None:
-        generator = itertools.product(*[df[col] for col in df.columns])
+    def chunk_generator(df, chunk_size: int = 100_000) -> list | None:
+        columns = [df[col].dropna().unique() for col in df.columns]
+        generator = itertools.product(*columns)
         chunk = []
         for i, combination in enumerate(generator):
             chunk.append(combination)
@@ -58,10 +58,11 @@ class CombinationsGenerator:
     def write_chunk(self, chunk: list, write_header: bool, df, original_columns: list,
                     have_name_and_code: int) -> Type[RuntimeError] | None:
         df_output = pd.DataFrame(chunk, columns=df.columns)
-        df_output.dropna(inplace=True)
+        df_output.dropna(inplace=False)
         if have_name_and_code:
             df_output = self.split_columns(df_output)
-            if df_output.any:
+            if type(df_output) != pd.DataFrame:
+                self.error_flag = True
                 return RuntimeError
             df_output.columns = original_columns
         # fixme chinese char breaks when writing from df to csv
@@ -73,27 +74,27 @@ class CombinationsGenerator:
             self.logger.log(log_str=f"Loading... {percent_complete}% complete.", log_type="update")
         return None
 
-    # fixme find out where the extra data coming from, and how to exit the main program when finished.
-    def thread_handler(self, df, original_columns: list , have_name_and_code: int,
-                       chunk_size: int = 100_000) -> None | str:
+    def thread_handler(self, df, original_columns: list , have_name_and_code: int, max_threads: int = 4) -> None | str:
         self.total_processed = 0
-        max_threads = 4
         threads = []
-        for i, chunk in enumerate(self.chunk_generator(df, chunk_size=chunk_size)):
-            print(f"chunk size: {len(chunk)}") # todo remove debug line
+        for i, chunk in enumerate(self.chunk_generator(df)):
             write_header = (i == 0)
-            thread = threading.Thread(target=self.write_chunk,
-                                      args=(chunk, write_header, df, original_columns, have_name_and_code),
-                                      daemon=True)
-            threads.append(thread)
-            self.stop_event.clear()
+            thread = threading.Thread(name=str(i), target=self.write_chunk, daemon=True,
+                                      args=(chunk, write_header, df, original_columns, have_name_and_code))
             thread.start()
+            print(f"thread started with chunk size: {len(chunk)}")
+            threads.append(thread)
+            print(threads)
             if len(threads) >= max_threads:
                 for t in threads:
                     t.join()  # Wait for current threads to finish
+                    print(f"thread {t.name} joined")
+                    print(threads)
                 threads = []  # Clear the list for the next batch
         for t in threads:
             t.join()
+            print(f"thread {t.name} joined")
+            print(threads)
         if not self.error_flag:
             self.logger.log(log_str=f"Processed {self.total_processed} combinations to path {self.write_path}",
                             log_type="instance record")

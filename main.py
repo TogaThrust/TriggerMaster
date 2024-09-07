@@ -239,7 +239,15 @@ class GUI:
         self.logger.log(log_str=f"CSV loaded with {self.file_handler.df_raw.shape[1]} columns, "
                                 + f"{self.file_handler.df_raw.shape[0]} rows.", log_type="record")
         return None
-    
+
+    @ staticmethod
+    def check_instance(instance: threading.Thread) -> None:
+        while True:
+            if not instance.is_alive():
+                print(f'Instance "{instance.name}" ended.')
+                break
+        return None
+
     def run(self) -> str | None:
         self.file_handler.clean_raw_df(self.have_name_and_code.get())
         error_str = self.combinations_generator.limit_check(df=self.file_handler.df_cleaned)
@@ -254,19 +262,20 @@ class GUI:
         self.combinations_generator.write_path = self.file_handler.get_new_file_path(self.entry_box.get())
         # Create new thread to handle back end processing.
         process_thread = threading.Thread(target=self.combinations_generator.thread_handler,
-                                                                args=(self.file_handler.df_cleaned,
-                                                                      self.file_handler.df_raw.columns,
-                                                                      self.have_name_and_code.get(),
-                                                                      self.combinations_generator.write_path),
-                                                                daemon=True)
+                                          daemon=True, name="Main Instance",
+                                          args=(self.file_handler.df_cleaned, self.file_handler.df_raw.columns,
+                                                self.have_name_and_code.get()))
         process_thread.start()
         self.logger.log(log_str="Process to create new combinations has started.", log_type="record")
+        check_thread = threading.Thread(target=lambda: self.check_instance(process_thread), daemon=True)
+        check_thread.start()
         return None
 
     def view_log(self) -> None:
         if self.logger.get_logs() == "":
             self.logger.log(log_str="Run program to view log.", log_type="record")
         messagebox.showinfo(title="Log", message=self.logger.get_logs())
+        print(f"Event Log printed\n" + self.logger.get_logs())
         return None
 
     def close(self):
