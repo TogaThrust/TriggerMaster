@@ -15,6 +15,8 @@ class ErrorHandler:
                                "RuntimeError": ["Runtime Error",
                                                 "Program encountered an error in writing data into CSV."
                                                 + " Try having no adjacent NA values in your input file."],
+                               "EmptyDataError": ["Empty Data Error", "Reader fails to fetch "
+                                                  + "readable data from the CSV file."]
                                }
 
     def raise_question_box(self, error_type: str) -> str:

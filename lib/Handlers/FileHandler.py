@@ -24,7 +24,10 @@ class FileHandler:
                 header = 'infer'
             df_validated = pd.read_csv(file_path, dtype=str, header=header, encoding='utf-8')
         except UnicodeDecodeError:
-            self.error_handler.raise_question_box(error_type="UnicodeDecodeError")
+            self.error_handler.raise_error_box(error_type="UnicodeDecodeError", log_str=None)
+            return False
+        except pd.errors.EmptyDataError:
+            self.error_handler.raise_error_box(error_type="EmptyDataError", log_str=None)
             return False
         self.df_raw = df_validated.copy()
         return True

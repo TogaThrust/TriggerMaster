@@ -240,14 +240,6 @@ class GUI:
                                 + f"{self.file_handler.df_raw.shape[0]} rows.", log_type="record")
         return None
 
-    @ staticmethod
-    def check_instance(instance: threading.Thread) -> None:
-        while True:
-            if not instance.is_alive():
-                print(f'Instance "{instance.name}" ended.')
-                break
-        return None
-
     def run(self) -> str | None:
         self.file_handler.clean_raw_df(self.have_name_and_code.get())
         error_str = self.combinations_generator.limit_check(df=self.file_handler.df_cleaned)
@@ -267,8 +259,6 @@ class GUI:
                                                 self.have_name_and_code.get()))
         process_thread.start()
         self.logger.log(log_str="Process to create new combinations has started.", log_type="record")
-        check_thread = threading.Thread(target=lambda: self.check_instance(process_thread), daemon=True)
-        check_thread.start()
         return None
 
     def view_log(self) -> None:
