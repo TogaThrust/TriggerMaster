@@ -10,13 +10,20 @@ class ErrorHandler:
 
                                "AttributeError": ["Object Error", "Unable to perform critical operations on file."],
 
-                               "LimitWarning": ["Limit Warning", "Data exceeds output limit. Run anyway?"],
-
                                "RuntimeError": ["Runtime Error",
                                                 "Program encountered an error in writing data into CSV."
-                                                + " Try having no adjacent NA values in your input file."],
+                                                + " Invalid number of columns or invalid data type."],
+
                                "EmptyDataError": ["Empty Data Error", "Reader fails to fetch "
-                                                  + "readable data from the CSV file."]
+                                                  + "readable data from the CSV file."],
+
+                               "InvalidDateFormat": ["Invalid Date Format", "Input a different date format."],
+
+                               "LimitWarning": ["Limit Warning", "Data is very large, "
+                                                + "might lead to longer processing time. Run anyway?"],
+
+                               "DateIdentifierWarning": ["Date Identifier Warning",
+                                                         "Program cannot detect last 2 date columns. Continue anyway?"]
                                }
 
     def raise_question_box(self, error_type: str) -> str:

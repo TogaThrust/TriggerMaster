@@ -1,5 +1,4 @@
 import os
-from typing import Type
 import pandas as pd
 import numpy as np
 
@@ -17,32 +16,60 @@ class FileHandler:
             return False
         return True
 
-    def convertible_csv(self, file_path: str, have_headers: int) -> bool:
+    def remove_last_two_nan_columns(self, df: pd.DataFrame) -> pd.DataFrame | bool:
+        if df.shape[1] >= 2:
+            if df.iloc[:, -2:].isna().all().all():
+                df = df.iloc[:, :-2]
+                self.logger.log("Empty date columns identified and removed.", log_type="record")
+                print(f"Removed dates columns:\n{df}")
+            else:
+                user_input = self.error_handler.raise_question_box(error_type="DateIdentifierWarning")
+                if user_input == "cancel":
+                    return False
+        return df
+
+    def convertible_file(self, file_path: str, have_headers: int) -> bool:
+        df_validated = pd.DataFrame()
         try:
             header = None
-            if have_headers:
-                header = 'infer'
-            df_validated = pd.read_csv(file_path, dtype=str, header=header, encoding='utf-8')
-        except UnicodeDecodeError:
+            if file_path.endswith('.csv'):
+                if have_headers:
+                    header = 'infer'
+                df_validated = pd.read_csv(file_path, dtype=str, header=header, encoding='utf-8')
+            elif file_path.endswith('.xlsx'):
+                if have_headers:
+                    header = 0
+                df_validated = pd.read_excel(file_path, dtype=str, header=header, sheet_name = 'Sheet1')
+        except UnicodeDecodeError | ValueError:
             self.error_handler.raise_error_box(error_type="UnicodeDecodeError", log_str=None)
             return False
         except pd.errors.EmptyDataError:
             self.error_handler.raise_error_box(error_type="EmptyDataError", log_str=None)
             return False
+        if not isinstance(self.remove_last_two_nan_columns(df_validated), pd.DataFrame):
+            return False
         self.df_raw = df_validated.copy()
         return True
 
-    @ staticmethod
-    def combine_columns(df: pd.DataFrame) -> pd.DataFrame:
+    def combine_columns(self, df: pd.DataFrame) -> pd.DataFrame | bool:
         concatenated_columns = []
         for i in range(0, len(df.columns), 2):
-            # Concatenate two columns
-            if i + 1 < len(df.columns):
-                combined = df.iloc[:, i].fillna('') + '%%' + df.iloc[:, i + 1].fillna('')
+            if len(df.columns) % 2 != 0: # check number of columns is even
+                self.error_handler.raise_error_box(error_type="RuntimeError", log_str=None)
+                return False
+            col_name = df.columns[i]
+            print(i)
+            if col_name in ["Account", "Level Code"]:
+                concatenated_columns.append(df.iloc[:, i])
+                if i + 1 < len(df.columns):  # Also append the next column if it exists
+                    concatenated_columns.append(df.iloc[:, i + 1])
             else:
-                combined = df.iloc[:, i].fillna('')  # Handle odd number of columns
-            concatenated_columns.append(combined)
+                combined = df.iloc[:, i] + '%%' + df.iloc[:, i + 1]
+                concatenated_columns.append(combined)
+        print(concatenated_columns)
         df_combined = pd.concat(concatenated_columns, axis=1)
+        df_combined = df_combined.iloc[:, :-1]
+        print(f"Combined columns:\n{df_combined}")
         return df_combined
 
     @ staticmethod
@@ -64,15 +91,18 @@ class FileHandler:
             return self.change_file_number(temp_path_list[0] + "_output (1)" + ".csv")
         return new_file_path
 
-    def clean_raw_df(self, have_name_and_code: int) -> Type[AttributeError] | None:
-        try:  # Raise exception when df is empty.
+    def df_cleanable(self, have_name_and_code: int) -> bool:
+        try:
             df_to_clean = self.df_raw.apply(lambda col: col.dropna().reset_index(drop=True))
             max_len = df_to_clean.apply(len).max()
             df_to_clean = df_to_clean.apply(lambda col: col.reindex(range(max_len)))
-        except AttributeError:
+        except ValueError: # Raise exception when df is empty.
             self.error_handler.raise_error_box(error_type="AttributeError", log_str=None)
-            return AttributeError
+            return False
         if have_name_and_code:
             df_to_clean = self.combine_columns(df_to_clean)
+        if not isinstance(df_to_clean, pd.DataFrame):
+            return False
         self.df_cleaned = df_to_clean.replace('%%', np.nan, regex=False)
-        return None
+        self.df_cleaned = self.df_cleaned.infer_objects(copy=False)
+        return True
