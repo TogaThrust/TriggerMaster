@@ -74,7 +74,7 @@ class CombinationsGenerator:
             df_output[header] = 0
         with lock:
             print("Lock acquired.")
-            df_output.to_csv(write_path, mode='a', header=False, index=False, encoding='utf-8-sig')
+            df_output.to_csv(write_path, mode='a', header=False, index=False, encoding='utf-8-sig') # fixme headers!
             print("Writen to csv.")
             total_processed += df_output.shape[0]
             percentage_complete = round((total_processed / expected_output) * 100, 2)
@@ -107,7 +107,7 @@ class CombinationsGenerator:
                 elif isinstance(error, TypeError):
                     self.error_handler.raise_error_box(error_type="RuntimeError", log_str=None)
                     return TypeError
-            display_df(results[0].head(100))
+        display_df(results[0].head(100))
         while not queue.empty():
             results = queue.get()
             self.logger.log(f"Percentage Complete: {results[0]}%.", log_type="update") # fixme this shit not updating in my UI
