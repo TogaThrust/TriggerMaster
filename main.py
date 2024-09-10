@@ -1,5 +1,6 @@
 import sys
 import threading
+import traceback
 from typing import Type
 import customtkinter as ctk
 import pandas as pd
@@ -13,10 +14,11 @@ from lib.Handlers.FileHandler import FileHandler
 from lib.Handlers.DateHandler import DateHandler
 from lib.Handlers.LoggerGUI import Logger
 from lib.Engine.CombinationsGenerator import CombinationsGenerator
+from lib.util.decorators import time_taken
 
 ctk.set_appearance_mode("Dark")
 
-# todo 03 User guide page
+# todo 03 User guide page and about page
 
 class GUI:
     def __init__(self):
@@ -223,6 +225,7 @@ class GUI:
         self.file_handler = FileHandler(self.logger, self.error_handler)
 
         # main loop, only to the end pls
+        self.root.report_callback_exception = self.report_callback_exception
         self.root.mainloop()
 
     def display_df(self, df_to_display: pd.DataFrame =None) -> None:
@@ -303,6 +306,7 @@ class GUI:
         del date_handler
         return dates
 
+    @ time_taken
     def run(self) -> str | None:
         """Try to handle most errors identified before process is run.
             Starts a separate thread for backend to maintain frontend usability"""
@@ -321,6 +325,7 @@ class GUI:
                         log_type="record")
         self.combinations_generator.write_path = self.file_handler.get_new_file_path(self.entry_box.get())
         # Create new thread to handle back end processing.
+        threading.excepthook = self.thread_excepthook
         process_thread = threading.Thread(target=self.combinations_generator.thread_handler,
                                           daemon=True, name="Main Instance",
                                           args=(self.file_handler.df_cleaned, self.file_handler.df_raw.columns,
@@ -344,5 +349,15 @@ class GUI:
         self.root.destroy()
         sys.exit()
 
+    def report_callback_exception(self, exc, val, tb):
+        error_message = ''.join(traceback.format_exception(exc, val, tb))
+        messagebox.showerror(title="Unhandled Exception", message=f"An error occurred: \n{error_message}\n")
+        self.root.quit()
+
+    def thread_excepthook(self, args):
+        error_message = ''.join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
+        messagebox.showerror(title="Unhandled Exception", message=f"An error occurred: \n{error_message}\n")
+        self.root.quit()
+
 if __name__ == "__main__":
-    gui=GUI()
+        gui=GUI()

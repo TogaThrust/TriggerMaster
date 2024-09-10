@@ -1,16 +1,19 @@
 import itertools
+import multiprocessing
 import pandas as pd
-import time
 from typing import Type
-from multiprocessing import Pool, cpu_count, Lock, Queue
+from multiprocessing import Pool, cpu_count, Lock
 
-def init_pool_processes(the_lock, the_queue):
-    """Initialize each process with a global variable lock.
-    """
+
+# noinspection PyGlobalUndefined
+def init_pool_processes(lock_inner, header_inner, total_processed_inner):
+    """Initialize each process with a global variable lock."""
     global lock
-    global queue
-    lock = the_lock
-    queue = the_queue
+    global header
+    global total_processed
+    lock = lock_inner
+    header = header_inner
+    total_processed = total_processed_inner
 
 class CombinationsGenerator:
     def __init__(self, logger, error_handler):
@@ -18,13 +21,10 @@ class CombinationsGenerator:
         self.error_handler = error_handler
         self.process_thread = None
         self.expected_output = 0
-        self.total_processed = 0
         self.write_path = ""
-        self.error_flag = False
 
     def get_expected_output(self, df) -> None:
         number_in_column = df.notna().sum()
-        print(f"Number of rows:\n{number_in_column}")
         expected_combinations = number_in_column.prod()
         self.expected_output = expected_combinations
         return None
@@ -55,70 +55,69 @@ class CombinationsGenerator:
 
     @ staticmethod # need to be static as tkinter object cannot be pickled
     def process_chunk(write_path: str, columns, original_columns:list, have_name_and_code:int,
-                      split_columns, dates: list, expected_output: int,
+                      split_columns, dates: list,
                       start: int, end: int) -> pd.DataFrame | Type[AttributeError | TypeError]:
-        print("Thread started")
         generator = itertools.product(*columns)
         chunk = list(itertools.islice(generator, start, end))
         processed_chunk = [list(combo) for combo in chunk] # Convert tuples to lists
         df_output = pd.DataFrame(processed_chunk)
         df_output.dropna(inplace=False)
-        total_processed = 0
         if have_name_and_code:
             df_output, error = split_columns(df_output)
             if error:
                 return error
             original_columns = original_columns[:-2]
             df_output.columns = original_columns
-        for header in dates:
-            df_output[header] = 0
+        for date_header in dates: # add in date columns that we have generated
+            df_output[date_header] = 0
+        temp_header = 'infer' if header.value else None
         with lock:
-            print("Lock acquired.")
-            df_output.to_csv(write_path, mode='a', header=False, index=False, encoding='utf-8-sig') # fixme headers!
-            print("Writen to csv.")
-            total_processed += df_output.shape[0]
-            percentage_complete = round((total_processed / expected_output) * 100, 2)
-            queue.put((percentage_complete,total_processed))
-        print("Thread ended.")
+            # noinspection PyTypeChecker
+            df_output.to_csv(path_or_buf=write_path, header=temp_header, index=False, mode='a', encoding='utf-8-sig')
+            total_processed.value += df_output.shape[0]
+            header.value = 0 # only write headers to 1
         return df_output
 
+    def error_flag(self, results: list) -> bool:
+        for result in results: # pandas df have typing issues :(
+            if isinstance(result, pd.DataFrame):
+                return False
+            elif Type[result] == Type[AttributeError]:
+                self.error_handler.raise_error_box(error_type="AttributeError", log_str=None)
+                return True
+            elif Type[result] == Type[TypeError]:
+                self.error_handler.raise_error_box(error_type="RuntimeError", log_str=None)
+                return True
+        return False
+
+    # noinspection PyShadowingNames
     def thread_handler(self, df, original_columns: list , have_name_and_code: int, dates: list, enable_buttons,
-                       display_df, chunk_size: int = 100_000) -> None | str | Type[AttributeError | TypeError]:
-        start_time = time.perf_counter()
-        self.total_processed = 0
+                       display_df, chunk_size: int = 100_000) -> None:
         columns = [df[col].dropna().unique() for col in df.columns]
         chunk_ranges = [(i, min(i + chunk_size, self.expected_output))
                         for i in range(0, self.expected_output, chunk_size)]
         lock = Lock()
-        queue = Queue()
+        header = multiprocessing.Value('i', 1)
+        total_processed = multiprocessing.Value('i', 0)
         # Initiate multithreading.
-        with Pool(cpu_count()-1, initializer=init_pool_processes, initargs=(lock,queue)) as pool:
-            results = pool.starmap(self.process_chunk,
-                                   [(self.write_path, columns,original_columns,have_name_and_code,
-                                     self.split_columns, dates, self.expected_output,
-                                     start, end) for start, end in chunk_ranges])
-        # Error flag.
-        if any(isinstance(result, (AttributeError, TypeError)) for result in results): # pandas df have typing issues :(
-            self.error_flag = True
-            for error in enumerate(results):
-                if isinstance(error, AttributeError):
-                    self.error_handler.raise_error_box(error_type="AttributeError", log_str=None)
-                    return AttributeError
-                elif isinstance(error, TypeError):
-                    self.error_handler.raise_error_box(error_type="RuntimeError", log_str=None)
-                    return TypeError
+        with Pool(cpu_count()-1, initializer=init_pool_processes, initargs=(lock, header, total_processed)) as pool:
+            results = pool.starmap_async(self.process_chunk, [(self.write_path, columns,original_columns,
+                                                               have_name_and_code, self.split_columns, dates,
+                                                               start, end) for start, end in chunk_ranges])
+            while not results.ready():
+                self.logger.log(f"Percentage Complete: "
+                                f"{round((total_processed.value / self.expected_output) * 100, 2)}%.",
+                                log_type="update")
+            pool.close()
+            pool.join()
+        results = results.get()
+        if self.error_flag(results):
+            return None
         display_df(results[0].head(100))
-        while not queue.empty():
-            results = queue.get()
-            self.logger.log(f"Percentage Complete: {results[0]}%.", log_type="update") # fixme this shit not updating in my UI
-            self.total_processed += results[1]
-        end_time = time.perf_counter()
-        time_taken = round((end_time - start_time), 2)
         enable_buttons("NORMAL")
-        if not self.error_flag:
-            self.logger.log(log_str=f"Time taken: {time_taken}", log_type="instance record")
-            self.logger.log(log_str=f"Processed {self.total_processed} combinations to path {self.write_path}",
-                            log_type="instance record")
+        self.logger.log(log_str=f"Processed {total_processed.value} combinations to path {self.write_path}",
+                        log_type="instance record")
+        if total_processed.value > 100:
             self.logger.log(log_str=f'Showing first {100} combinations. Click "View Log" for more info.',
                             log_type="instance update")
         return None

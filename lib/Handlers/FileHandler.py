@@ -21,7 +21,6 @@ class FileHandler:
             if df.iloc[:, -2:].isna().all().all():
                 df = df.iloc[:, :-2]
                 self.logger.log("Empty date columns identified and removed.", log_type="record")
-                print(f"Removed dates columns:\n{df}")
             else:
                 user_input = self.error_handler.raise_question_box(error_type="DateIdentifierWarning")
                 if user_input == "cancel":
@@ -40,7 +39,7 @@ class FileHandler:
                 if have_headers:
                     header = 0
                 df_validated = pd.read_excel(file_path, dtype=str, header=header, sheet_name = 'Sheet1')
-        except UnicodeDecodeError | ValueError:
+        except UnicodeDecodeError or ValueError:
             self.error_handler.raise_error_box(error_type="UnicodeDecodeError", log_str=None)
             return False
         except pd.errors.EmptyDataError:
@@ -58,7 +57,6 @@ class FileHandler:
                 self.error_handler.raise_error_box(error_type="RuntimeError", log_str=None)
                 return False
             col_name = df.columns[i]
-            print(i)
             if col_name in ["Account", "Level Code"]:
                 concatenated_columns.append(df.iloc[:, i])
                 if i + 1 < len(df.columns):  # Also append the next column if it exists
@@ -66,10 +64,8 @@ class FileHandler:
             else:
                 combined = df.iloc[:, i] + '%%' + df.iloc[:, i + 1]
                 concatenated_columns.append(combined)
-        print(concatenated_columns)
         df_combined = pd.concat(concatenated_columns, axis=1)
         df_combined = df_combined.iloc[:, :-1]
-        print(f"Combined columns:\n{df_combined}")
         return df_combined
 
     @ staticmethod
