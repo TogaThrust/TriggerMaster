@@ -2,10 +2,10 @@ import itertools
 import multiprocessing
 import pandas as pd
 from typing import Type
-from multiprocessing import Pool, cpu_count, Lock
+from multiprocessing import Pool, cpu_count, Lock, freeze_support
+from root.lib.util.decorators import time_taken
 
 
-# noinspection PyGlobalUndefined
 def init_pool_processes(lock_inner, header_inner, total_processed_inner):
     """Initialize each process with a global variable lock."""
     global lock
@@ -23,21 +23,18 @@ class CombinationsGenerator:
         self.expected_output = 0
         self.write_path = ""
 
-    def get_expected_output(self, df) -> None:
+    def _get_expected_output(self, df) -> None:
+        """Product of len of each column."""
         number_in_column = df.notna().sum()
         expected_combinations = number_in_column.prod()
         self.expected_output = expected_combinations
         return None
 
-    # Raise exception when data to process is too large.
-    def limit_check(self, df, warning_limit: int = 1_000_000) -> str | None:
-        self.get_expected_output(df)
-        if self.expected_output > warning_limit:
-            return self.error_handler.raise_question_box(error_type="LimitWarning")
-        return None
-
     @ staticmethod # method need to be static as tkinter objects are not pickle-able.
-    def split_columns(df: pd.DataFrame) -> tuple[pd.DataFrame | None, Type[AttributeError | TypeError] | None]:
+    def _split_columns(df: pd.DataFrame) -> tuple[pd.DataFrame | None, Type[AttributeError | TypeError] | None]:
+        """For each column split columns if it contains the '%%' token, otherwise keeps the column as is."""
+        # Probably should have written this in the File handler, but I am not going to pass it here to create
+        # unnecessary mess.
         df_split = pd.DataFrame()
         try:
             for col in df.columns:
@@ -54,9 +51,12 @@ class CombinationsGenerator:
         return df_split, None
 
     @ staticmethod # need to be static as tkinter object cannot be pickled
-    def process_chunk(write_path: str, columns, original_columns:list, have_name_and_code:int,
+    def _process_chunk(write_path: str, columns, original_columns:list, have_name_and_code:int,
                       split_columns, dates: list,
                       start: int, end: int) -> pd.DataFrame | Type[AttributeError | TypeError]:
+        """Generates the actual product values for each column using a generator which takes in
+            start and end number of rows for chunking."""
+        # Honestly generator written by GPT, not going to pretend to know what's going on there.
         generator = itertools.product(*columns)
         chunk = list(itertools.islice(generator, start, end))
         processed_chunk = [list(combo) for combo in chunk] # Convert tuples to lists
@@ -72,13 +72,13 @@ class CombinationsGenerator:
             df_output[date_header] = 0
         temp_header = 'infer' if header.value else None
         with lock:
-            # noinspection PyTypeChecker
             df_output.to_csv(path_or_buf=write_path, header=temp_header, index=False, mode='a', encoding='utf-8-sig')
             total_processed.value += df_output.shape[0]
             header.value = 0 # only write headers to 1
         return df_output
 
-    def error_flag(self, results: list) -> bool:
+    def _error_flag(self, results: list) -> bool:
+        """When results from the processes returns error value we handle them here."""
         for result in results: # pandas df have typing issues :(
             if isinstance(result, pd.DataFrame):
                 return False
@@ -90,9 +90,11 @@ class CombinationsGenerator:
                 return True
         return False
 
-    # noinspection PyShadowingNames
-    def thread_handler(self, df, original_columns: list , have_name_and_code: int, dates: list, enable_buttons,
+    @time_taken
+    def generate_processes(self, df, original_columns: list , have_name_and_code: int, dates: list, enable_buttons,
                        display_df, chunk_size: int = 100_000) -> None:
+        """Main wrapper around the main process in which we declare some variables
+            to be processed by each process thread."""
         columns = [df[col].dropna().unique() for col in df.columns]
         chunk_ranges = [(i, min(i + chunk_size, self.expected_output))
                         for i in range(0, self.expected_output, chunk_size)]
@@ -101,9 +103,9 @@ class CombinationsGenerator:
         total_processed = multiprocessing.Value('i', 0)
         # Initiate multithreading.
         with Pool(cpu_count()-1, initializer=init_pool_processes, initargs=(lock, header, total_processed)) as pool:
-            results = pool.starmap_async(self.process_chunk, [(self.write_path, columns,original_columns,
-                                                               have_name_and_code, self.split_columns, dates,
-                                                               start, end) for start, end in chunk_ranges])
+            results = pool.starmap_async(self._process_chunk, [(self.write_path, columns, original_columns,
+                                                                have_name_and_code, self._split_columns, dates,
+                                                                start, end) for start, end in chunk_ranges])
             while not results.ready():
                 self.logger.log(f"Percentage Complete: "
                                 f"{round((total_processed.value / self.expected_output) * 100, 2)}%.",
@@ -111,7 +113,7 @@ class CombinationsGenerator:
             pool.close()
             pool.join()
         results = results.get()
-        if self.error_flag(results):
+        if self._error_flag(results):
             return None
         display_df(results[0].head(100))
         enable_buttons("NORMAL")
@@ -120,4 +122,12 @@ class CombinationsGenerator:
         if total_processed.value > 100:
             self.logger.log(log_str=f'Showing first {100} combinations. Click "View Log" for more info.',
                             log_type="instance update")
+        return None
+
+    # Raise exception when data to process is too large.
+    def limit_check(self, df, warning_limit: int = 1_000_000) -> str | None:
+        """Warns users if processing will take longer. Totally necessary."""
+        self._get_expected_output(df)
+        if self.expected_output > warning_limit:
+            return self.error_handler.raise_question_box(error_type="LimitWarning")
         return None

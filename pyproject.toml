@@ -1,18 +1,24 @@
 [tool.poetry]
-name = "poetry install"
+name = "root"
 version = "0.1.0"
 description = ""
 authors = ["togathrust <togathruster@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "~3.12"
 customtkinter = "^5.2.2"
 tkcalendar = "^1.6.1"
 numpy = "^2.1.1"
 openpyxl = "^3.1.5"
-
+pyinstaller = "^6.10.0"
+pandas = "^2.2.2"
+pillow = "^10.4.0"
+babel = "^2.16.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+build = "root.pyinstaller:install"

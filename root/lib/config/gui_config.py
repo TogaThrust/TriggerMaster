@@ -1,5 +1,5 @@
 ui_grid = {
-    "image": {"row": 0, "sticky": "n", "padx": 5, "pady": (5,0)},
+    "image": {"row": 0, "sticky": "n", "padx": 5, "pady": (5,10)},
 
     "input_frame": {
         "config": {"row": 1, "sticky": "ew", "padx": 5, "pady": (5,0)},
@@ -19,10 +19,10 @@ ui_grid = {
         "format_date_button" : {"text": "Confirm", "row": 0, "column": 2, "sticky": "ew", "padx": 5, "pady": (5,0)},
         "date_start_label": {"text": "Select start date:", "row": 1, "column": 0, "sticky": "w",
                              "padx": 5, "pady": (5,0)},
-        "calendar_start": {"row": 1, "column": 1, "sticky": "ew", "padx": 5, "pady": (5,0)},
+        "calendar_start": {"row": 1, "column": 1, "sticky": "w", "padx": 5, "pady": (5,0)},
         "date_end_label": {"text": "Select end date:", "row": 2, "column": 0, "sticky": "w",
                            "padx": 5, "pady": (5,5)},
-        "calendar_end": {"row": 2, "column": 1, "sticky": "ew", "padx": 5, "pady": (5,5)}
+        "calendar_end": {"row": 2, "column": 1, "sticky": "w", "padx": 5, "pady": (5,5)}
     },
 
     "df_frame": {
@@ -44,7 +44,9 @@ ui_grid = {
 
     "log_frame": {
         "config": {"row": 5, "sticky": "ew", "padx": 5, "pady": (5, 5)},
-        "log_label": {"text": "Press Start", "row": 0, "column": 0, "sticky": "w", "padx": (5, 5)}
+        "log_label": {"text": "Press Start",
+                      "row": 0, "column": 0, "columnspan": 2, "sticky": "w", "padx": 5, "pady": (5,0)},
+        "loading_label": {"row": 0, "column": 2, "sticky": "e", "padx": 5, "pady": (5,0)}
     }
 }
 

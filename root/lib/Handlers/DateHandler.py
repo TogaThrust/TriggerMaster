@@ -7,7 +7,7 @@ class DateHandler:
         self.end_date = end_date
 
     @staticmethod
-    def babel_to_python_date_format(babel_format):
+    def _babel_to_python_date_format(babel_format):
         # Unfortunately python uses its own date syntax, and most business ppl only understands babel.
         # So we have to deal with this. Implemented this as a class for scalability?
         babel_python_map = {
@@ -40,10 +40,11 @@ class DateHandler:
         return python_format
 
     def generate_dates_between(self, output_format:str, input_format: str = "%d-%m-%Y") -> list:
+        """If user input is with DD, generate dates in the stated format, if not we will just generate the months."""
         start_date = datetime.strptime(self.start_date, input_format)
         end_date = datetime.strptime(self.end_date, input_format)
         # Check if the output format is month-based (e.g., 'mm/yyyy') or day-based (e.g., 'dd/mm/yyyy')
-        output_format = self.babel_to_python_date_format(output_format)
+        output_format = self._babel_to_python_date_format(output_format)
         if "%d" in output_format:
             current_date = start_date
             result = []

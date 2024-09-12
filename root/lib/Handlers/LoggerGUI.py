@@ -7,6 +7,7 @@ class Logger(object):
         self.log_label = log_label
 
     def log(self, log_str: str, log_type: str) -> None:
+        """This handles any cases where log is called within a child thread."""
         if log_type == "update":
             self._update_log_label(log_str)
         elif log_type == "instance update":
