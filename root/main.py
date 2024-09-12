@@ -1,6 +1,7 @@
 import sys
 import os
 import threading
+import time
 import traceback
 from multiprocessing.spawn import freeze_support
 from typing import Type
@@ -319,13 +320,15 @@ class GUI:
                             padx=self.ui_grid["log_frame"]["log_label"]["padx"],
                             pady=self.ui_grid["log_frame"]["log_label"]["pady"],
                             sticky=self.ui_grid["log_frame"]["log_label"]["sticky"])
-        self.log_frame.configure(height=self.log_label.winfo_reqheight())
+        self.log_label.update()
+        self.log_frame.configure(height=self.log_label.winfo_height())
 
         self.gif_image = Image.open(resource_path("lib/assets/loading.gif"))
         self.animation_enabled = False
         self.loading_label = ctk.CTkLabel(self.log_frame, text="")
         self.loading_label.grid(row=self.ui_grid["log_frame"]["loading_label"]["row"],
                                 column=self.ui_grid["log_frame"]["loading_label"]["column"],
+                                columnspan=self.ui_grid["log_frame"]["loading_label"]["columnspan"],
                                 padx=self.ui_grid["log_frame"]["loading_label"]["padx"],
                                 pady=self.ui_grid["log_frame"]["loading_label"]["pady"],
                                 sticky=self.ui_grid["log_frame"]["loading_label"]["sticky"])

@@ -45,8 +45,8 @@ ui_grid = {
     "log_frame": {
         "config": {"row": 5, "sticky": "ew", "padx": 5, "pady": (5, 5)},
         "log_label": {"text": "Press Start",
-                      "row": 0, "column": 0, "columnspan": 2, "sticky": "w", "padx": 5, "pady": (5,0)},
-        "loading_label": {"row": 0, "column": 2, "sticky": "e", "padx": 5, "pady": (5,0)}
+                      "row": 0, "column": 0, "columnspan": 2, "sticky": "nw", "padx": 5, "pady": (5,0)},
+        "loading_label": {"row": 0, "column": 2, "columnspan": 1, "sticky": "ew", "padx": 5, "pady": (5,5)}
     }
 }
 

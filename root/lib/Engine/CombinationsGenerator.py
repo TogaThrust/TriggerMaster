@@ -53,7 +53,7 @@ class CombinationsGenerator:
     @ staticmethod # need to be static as tkinter object cannot be pickled
     def _process_chunk(write_path: str, columns, original_columns:list, have_name_and_code:int,
                       split_columns, dates: list,
-                      start: int, end: int) -> pd.DataFrame | Type[AttributeError | TypeError]:
+                      start: int, end: int) -> None | pd.DataFrame | Type[AttributeError | TypeError]:
         """Generates the actual product values for each column using a generator which takes in
             start and end number of rows for chunking."""
         # Honestly generator written by GPT, not going to pretend to know what's going on there.
@@ -74,8 +74,8 @@ class CombinationsGenerator:
         with lock:
             df_output.to_csv(path_or_buf=write_path, header=temp_header, index=False, mode='a', encoding='utf-8-sig')
             total_processed.value += df_output.shape[0]
-            header.value = 0 # only write headers to 1
-        return df_output
+            header.value = 0  # only write headers to 1
+        return df_output.head(100)
 
     def _error_flag(self, results: list) -> bool:
         """When results from the processes returns error value we handle them here."""
@@ -90,9 +90,17 @@ class CombinationsGenerator:
                 return True
         return False
 
-    @time_taken
-    def generate_processes(self, df, original_columns: list , have_name_and_code: int, dates: list, enable_buttons,
-                       display_df, chunk_size: int = 100_000) -> None:
+    def report_complete(self, rows: int) -> None:
+        if rows > 100:
+            sub = f'Showing first {100} combinations.'
+        else:
+            sub = "Process Complete."
+        self.logger.log(log_str=f"Processed {rows} combinations to path {self.write_path}",
+                        log_type="instance record")
+        self.logger.log(log_str=sub+' Click "View Log" for more info.', log_type="instance update")
+
+    def generate_processes(self, df, original_columns: list , have_name_and_code: int,
+                           dates: list, enable_buttons, display_df, chunk_size: int = 100_000) -> None:
         """Main wrapper around the main process in which we declare some variables
             to be processed by each process thread."""
         columns = [df[col].dropna().unique() for col in df.columns]
@@ -102,26 +110,24 @@ class CombinationsGenerator:
         header = multiprocessing.Value('i', 1)
         total_processed = multiprocessing.Value('i', 0)
         # Initiate multithreading.
-        with Pool(cpu_count()-1, initializer=init_pool_processes, initargs=(lock, header, total_processed)) as pool:
-            results = pool.starmap_async(self._process_chunk, [(self.write_path, columns, original_columns,
-                                                                have_name_and_code, self._split_columns, dates,
-                                                                start, end) for start, end in chunk_ranges])
-            while not results.ready():
-                self.logger.log(f"Percentage Complete: "
-                                f"{round((total_processed.value / self.expected_output) * 100, 2)}%.",
-                                log_type="update")
-            pool.close()
-            pool.join()
-        results = results.get()
+        @time_taken
+        def multi_threading(self):
+            with Pool(cpu_count()-1, initializer=init_pool_processes, initargs=(lock, header, total_processed)) as pool:
+                results = pool.starmap_async(self._process_chunk, [(self.write_path, columns, original_columns,
+                                                                    have_name_and_code, self._split_columns, dates,
+                                                                    start, end) for start, end in chunk_ranges])
+                while not results.ready():
+                    self.logger.log(f"{round((total_processed.value / self.expected_output) * 100, 2)}% complete.",
+                                    log_type="update")
+                pool.close()
+                pool.join()
+            return results.get()
+        results = multi_threading(self)
         if self._error_flag(results):
             return None
-        display_df(results[0].head(100))
+        display_df(results[0])
         enable_buttons("NORMAL")
-        self.logger.log(log_str=f"Processed {total_processed.value} combinations to path {self.write_path}",
-                        log_type="instance record")
-        if total_processed.value > 100:
-            self.logger.log(log_str=f'Showing first {100} combinations. Click "View Log" for more info.',
-                            log_type="update")
+        self.report_complete(total_processed.value)
         return None
 
     # Raise exception when data to process is too large.
