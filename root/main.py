@@ -27,16 +27,19 @@ class ScrollablePage(ctk.CTkFrame):
         self.labels = help_page
         self.root = root
 
-        self.canvas = Canvas(self, bg="#2b2b2b", bd=0, highlightthickness=0)
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar = Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.scrollbar.pack(side="right", fill="y")
+        self.frame_holder = ctk.CTkFrame(self)
+        self.frame_holder.pack(fill='both', expand=True)
+        self.canvas = Canvas(self.frame_holder, bg="#2b2b2b", bd=0, highlightthickness=0)
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar = Scrollbar(self.frame_holder, orient="vertical", command=self.canvas.yview)
+        self.scrollbar.grid(row=0, column=2, sticky="ns")
+        self.frame_holder.rowconfigure(0, weight=1)
+        self.frame_holder.columnconfigure(0, weight=1)
         self.canvas.bind_all("<MouseWheel>", self._on_mouse_wheel)
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
         self.content_frame = ctk.CTkFrame(self.canvas)
         self.canvas.create_window((0, 0), window=self.content_frame, anchor="nw")
-        self.content_frame.bind("<Configure>", self._on_frame_configure)
 
         # Contents
         self.label = ctk.CTkLabel(self.content_frame, text=self.labels[0]["text"], anchor="w",
@@ -44,9 +47,8 @@ class ScrollablePage(ctk.CTkFrame):
         self.label.grid(row=0, column=0, sticky="nsew", padx=self.labels[0]["padx"], pady=self.labels[0]["pady"])
         self._add_images(resource_path("lib\\assets\\help\\"))
 
-    def _on_frame_configure(self, event):
+        self.content_frame.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        return None
 
     def _on_mouse_wheel(self, event):
         """Scroll using mouse wheel."""
@@ -58,10 +60,8 @@ class ScrollablePage(ctk.CTkFrame):
     def _get_window_width(self):
         """Get and print the current window width."""
         self.root.update()
-        self.scrollbar.update()
         window_width = self.root.winfo_width()
-        scrollbar_width = self.scrollbar.winfo_width()
-        return window_width - scrollbar_width
+        return window_width
 
     def _add_images(self, image_directory):
         """
@@ -74,22 +74,24 @@ class ScrollablePage(ctk.CTkFrame):
             if image_file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
                 image_path = os.path.join(image_directory, image_file)
 
+                self.scrollbar.update()
+                scrollbar_width = self.scrollbar.winfo_width()*2
                 # Open and process the image
                 img = Image.open(resource_path(image_path))
                 aspect_ratio = img.height / img.width
-                new_height = int(self._get_window_width() * aspect_ratio)
-                img.thumbnail((self._get_window_width(),new_height))  # Resize the image (optional)
+                new_height = int(self._get_window_width()- scrollbar_width * aspect_ratio)
+                img.thumbnail((self._get_window_width() - scrollbar_width,new_height))  # Resize the image (optional)
                 img_tk = ImageTk.PhotoImage(img)
 
                 # Create a label for the image and center it
                 label = ttk.Label(self.content_frame, image=img_tk)
                 label.image = img_tk  # Keep a reference to avoid garbage collection
-                label.grid(row=1+(i*2), column=0, sticky="ew", padx=5, pady=(5,0))
-            label2 = ctk.CTkLabel(self.content_frame, text=self.labels[i+1]["text"], anchor="w",
-                                  justify=ctk.LEFT, font=("Lato", 16), wraplength=self._get_window_width())
-            label2.grid(row=2+(i*2), column=0, sticky="nsew",
-                        padx=self.labels[i+1]["padx"], pady=self.labels[i+1]["pady"])
-
+                label.grid(row=1+(i*2), column=0, sticky="nw", padx=(5,15), pady=(5,0))
+                label2 = ctk.CTkLabel(self.content_frame, text=self.labels[i+1]["text"], anchor="w",
+                                      justify=ctk.LEFT, font=("Lato", 14),
+                                      wraplength=self._get_window_width() - scrollbar_width)
+                label2.grid(row=2+(i*2), column=0, sticky="nw",
+                            padx=self.labels[i+1]["padx"], pady=self.labels[i+1]["pady"])
 
 class GUI:
     def __init__(self):
@@ -113,7 +115,7 @@ class GUI:
         self.resized_image = self.pil_image.resize((new_width, new_height))
         self.image = ImageTk.PhotoImage(self.resized_image)
         self.image_label = ctk.CTkLabel(self.root,text="", image=self.image)
-        self.image_label.pack()
+        self.image_label.pack(padx=self.ui_grid["image"]["padx"], pady=self.ui_grid["image"]["pady"])
 
         self.style = ttk.Style()
         self.style.theme_use('clam')

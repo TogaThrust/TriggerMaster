@@ -121,7 +121,7 @@ class CombinationsGenerator:
                         log_type="instance record")
         if total_processed.value > 100:
             self.logger.log(log_str=f'Showing first {100} combinations. Click "View Log" for more info.',
-                            log_type="instance update")
+                            log_type="update")
         return None
 
     # Raise exception when data to process is too large.

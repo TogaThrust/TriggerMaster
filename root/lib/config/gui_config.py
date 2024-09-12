@@ -1,5 +1,5 @@
 ui_grid = {
-    "image": {"row": 0, "sticky": "n", "padx": 5, "pady": (5,10)},
+    "image": {"row": 0, "sticky": "n", "padx": 0, "pady": (20,5)},
 
     "input_frame": {
         "config": {"row": 1, "sticky": "ew", "padx": 5, "pady": (5,0)},

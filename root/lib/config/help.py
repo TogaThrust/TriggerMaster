@@ -11,7 +11,8 @@ help_page = [
         "pady": (5, 0)
     },
     {
-        "text": "2. Fill in the 'individual' values in the template columns. *Important* Rename sheet to 'Sheet1'.",
+        "text": "2. Fill in the 'individual' values in the template columns. "
+                + "\n*Important* Rename sheet to 'Sheet1'.",
         "padx": 5,
         "pady": (5, 0)
     },
@@ -31,6 +32,6 @@ help_page = [
         "text": "5. A CSV file will be created, please avoid opening it as it will mess with the date formatting.\n"
                 + "Review data from the app and upload csv to the same upload page the template is downloaded from.",
         "padx": 5,
-        "pady": (5, 0)
+        "pady": (5, 5)
     }
 ]
