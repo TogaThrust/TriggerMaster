@@ -2,7 +2,7 @@ import itertools
 import multiprocessing
 import pandas as pd
 from typing import Type
-from multiprocessing import Pool, cpu_count, Lock, freeze_support
+from multiprocessing import Pool, cpu_count, Lock
 from root.lib.util.decorators import time_taken
 
 
@@ -22,13 +22,6 @@ class CombinationsGenerator:
         self.process_thread = None
         self.expected_output = 0
         self.write_path = ""
-
-    def _get_expected_output(self, df) -> None:
-        """Product of len of each column."""
-        number_in_column = df.notna().sum()
-        expected_combinations = number_in_column.prod()
-        self.expected_output = expected_combinations
-        return None
 
     @ staticmethod # method need to be static as tkinter objects are not pickle-able.
     def _split_columns(df: pd.DataFrame) -> tuple[pd.DataFrame | None, Type[AttributeError | TypeError] | None]:
@@ -51,8 +44,7 @@ class CombinationsGenerator:
         return df_split, None
 
     @ staticmethod # need to be static as tkinter object cannot be pickled
-    def _process_chunk(write_path: str, columns, original_columns:list, have_name_and_code:int,
-                      split_columns, dates: list,
+    def _process_chunk(write_path: str, columns, original_columns:list, split_columns, dates: list,
                       start: int, end: int) -> None | pd.DataFrame | Type[AttributeError | TypeError]:
         """Generates the actual product values for each column using a generator which takes in
             start and end number of rows for chunking."""
@@ -62,12 +54,11 @@ class CombinationsGenerator:
         processed_chunk = [list(combo) for combo in chunk] # Convert tuples to lists
         df_output = pd.DataFrame(processed_chunk)
         df_output.dropna(inplace=False)
-        if have_name_and_code:
-            df_output, error = split_columns(df_output)
-            if error:
-                return error
-            original_columns = original_columns[:-2]
-            df_output.columns = original_columns
+        df_output, error = split_columns(df_output)
+        if error:
+            return error
+        original_columns = original_columns[:-2]
+        df_output.columns = original_columns
         for date_header in dates: # add in date columns that we have generated
             df_output[date_header] = 0
         temp_header = 'infer' if header.value else None
@@ -99,8 +90,8 @@ class CombinationsGenerator:
                         log_type="instance record")
         self.logger.log(log_str=sub+' Click "View Log" for more info.', log_type="instance update")
 
-    def generate_processes(self, df, original_columns: list , have_name_and_code: int,
-                           dates: list, enable_buttons, display_df, chunk_size: int = 100_000) -> None:
+    def generate_processes(self, df, original_columns: list, dates: list, enable_buttons,
+                           display_df, chunk_size: int = 100_000) -> None:
         """Main wrapper around the main process in which we declare some variables
             to be processed by each process thread."""
         columns = [df[col].dropna().unique() for col in df.columns]
@@ -111,10 +102,10 @@ class CombinationsGenerator:
         total_processed = multiprocessing.Value('i', 0)
         # Initiate multithreading.
         @time_taken
-        def multi_threading(self):
+        def multi_threading():
             with Pool(cpu_count()-1, initializer=init_pool_processes, initargs=(lock, header, total_processed)) as pool:
                 results = pool.starmap_async(self._process_chunk, [(self.write_path, columns, original_columns,
-                                                                    have_name_and_code, self._split_columns, dates,
+                                                                    self._split_columns, dates,
                                                                     start, end) for start, end in chunk_ranges])
                 while not results.ready():
                     self.logger.log(f"{round((total_processed.value / self.expected_output) * 100, 2)}% complete.",
@@ -122,18 +113,10 @@ class CombinationsGenerator:
                 pool.close()
                 pool.join()
             return results.get()
-        results = multi_threading(self)
+        results = multi_threading()
         if self._error_flag(results):
             return None
         display_df(results[0])
         enable_buttons("NORMAL")
         self.report_complete(total_processed.value)
-        return None
-
-    # Raise exception when data to process is too large.
-    def limit_check(self, df, warning_limit: int = 1_000_000) -> str | None:
-        """Warns users if processing will take longer. Totally necessary."""
-        self._get_expected_output(df)
-        if self.expected_output > warning_limit:
-            return self.error_handler.raise_question_box(error_type="LimitWarning")
         return None

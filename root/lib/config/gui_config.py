@@ -1,6 +1,4 @@
-ui_grid = {
-    "image": {"row": 0, "sticky": "n", "padx": 0, "pady": (20,5)},
-
+main_grid = {
     "input_frame": {
         "config": {"row": 1, "sticky": "ew", "padx": 5, "pady": (5,0)},
         "entry_box": {"row": 0, "column": 0, "sticky": "ew", "padx": 5, "pady": (5,5)},
@@ -49,5 +47,3 @@ ui_grid = {
         "loading_label": {"row": 0, "column": 2, "columnspan": 1, "sticky": "ew", "padx": 5, "pady": (5,5)}
     }
 }
-
-custom_font = ("Lato", 14)
